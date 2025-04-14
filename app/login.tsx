@@ -1,17 +1,31 @@
-import React, { useState } from 'react'
-import { StyleSheet, Image, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
-import { router } from 'expo-router'
-import { createClient } from '@supabase/supabase-js'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+"use client"
 
-import { ThemedText } from '@/components/ThemedText'
-import { ThemedView } from '@/components/ThemedView'
-import { IconSymbol } from '@/components/ui/IconSymbol'
+import { useState, useEffect } from "react"
+import {
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  View,
+  Keyboard,
+} from "react-native"
+import { LinearGradient } from "expo-linear-gradient"
+import { router } from "expo-router"
+import { createClient } from "@supabase/supabase-js"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+import { StatusBar } from "expo-status-bar"
+import { BlurView } from "expo-blur"
+
+import { ThemedText } from "@/components/ThemedText"
+import { IconSymbol } from "@/components/ui/IconSymbol"
 
 // Initialize Supabase client
 const supabaseUrl = 'https://oquvqaiisiilhbvoopoi.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdXZxYWlpc2lpbGhidm9vcG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NjcwNDksImV4cCI6MjA2MDE0MzA0OX0.XZT2SaLizGo8LWuFv3zRjHwuF-dzsSzCrKFNKuYe8Xs'
+
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
@@ -22,16 +36,71 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 })
 
+const { width, height } = Dimensions.get("window")
+
 export default function LoginScreen() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
+  const [emailError, setEmailError] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [generalError, setGeneralError] = useState("")
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false)
+
+  // Check if user is already logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        // User is already logged in, redirect to tabs
+        router.replace("/(tabs)")
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    const keyboardDidShowListener =
+      Platform.OS === "ios"
+        ? Keyboard.addListener("keyboardWillShow", () => setKeyboardVisible(true))
+        : Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true))
+
+    const keyboardDidHideListener =
+      Platform.OS === "ios"
+        ? Keyboard.addListener("keyboardWillHide", () => setKeyboardVisible(false))
+        : Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false))
+
+    return () => {
+      keyboardDidShowListener.remove()
+      keyboardDidHideListener.remove()
+    }
+  }, [])
+
+  const validateForm = () => {
+    let isValid = true
+    setEmailError("")
+    setPasswordError("")
+    setGeneralError("")
+
+    if (!email) {
+      setEmailError("Email is required")
+      isValid = false
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      setEmailError("Please enter a valid email address")
+      isValid = false
+    }
+
+    if (!password) {
+      setPasswordError("Password is required")
+      isValid = false
+    } else if (password.length < 6) {
+      setPasswordError("Password must be at least 6 characters")
+      isValid = false
+    }
+
+    return isValid
+  }
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password')
-      return
-    }
+    if (!validateForm()) return
 
     setLoading(true)
     try {
@@ -41,148 +110,308 @@ export default function LoginScreen() {
       })
 
       if (error) {
-        Alert.alert('Error', error.message)
+        if (error.message.includes("Invalid login")) {
+          setGeneralError("Invalid email or password")
+        } else {
+          setGeneralError(error.message)
+        }
       } else {
         // Navigate to the main app
-        router.replace('/(tabs)')
+        router.replace("/(tabs)")
       }
     } catch (error) {
-      Alert.alert('Error', 'An unexpected error occurred')
+      setGeneralError("An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
+  // For demo purposes - quick login without authentication
+  const handleDemoLogin = () => {
+    router.replace("/(tabs)")
+  }
+
   return (
-    <LinearGradient
-      colors={['#4c669f', '#3b5998', '#192f6a']}
-      style={styles.container}
-    >
-      <ThemedView style={styles.logoContainer}>
-        <IconSymbol size={80} name="person.crop.circle.badge.checkmark" color="#ffffff" />
-        <ThemedText style={styles.logoText}>Staff Attendance</ThemedText>
-      </ThemedView>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={["#4776E6", "#8E54E9"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.container}
+      >
+        <View style={styles.backgroundCircle1} />
+        <View style={styles.backgroundCircle2} />
 
-      <ThemedView style={styles.formContainer}>
-        <ThemedText style={styles.title}>Staff Login</ThemedText>
-        
-        <ThemedView style={styles.inputContainer}>
-          <IconSymbol size={20} name="envelope.fill" color="#4c669f" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#888"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-        </ThemedView>
+        <View style={styles.logoContainer}>
+          <IconSymbol size={60} name="building.columns.fill" color="#ffffff" style={styles.logoIcon} />
+          <ThemedText style={styles.logoText}>Staff Attendance</ThemedText>
+          <ThemedText style={styles.logoSubText}>Management System</ThemedText>
+        </View>
 
-        <ThemedView style={styles.inputContainer}>
-          <IconSymbol size={20} name="lock.fill" color="#4c669f" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#888"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        </ThemedView>
+        <BlurView intensity={30} tint="light" style={styles.formContainer}>
+          <ThemedText style={styles.title}>Welcome Back</ThemedText>
+          <ThemedText style={styles.subtitle}>Sign in to continue</ThemedText>
 
-        <TouchableOpacity style={styles.forgotPassword}>
-          <ThemedText style={styles.forgotPasswordText}>Forgot Password?</ThemedText>
-        </TouchableOpacity>
+          {generalError ? (
+            <View style={styles.errorContainer}>
+              <IconSymbol size={16} name="exclamationmark.triangle.fill" color="#FF3B30" />
+              <ThemedText style={styles.errorText}>{generalError}</ThemedText>
+            </View>
+          ) : null}
 
-        <TouchableOpacity 
-          style={styles.loginButton}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <ThemedText style={styles.loginButtonText}>Login</ThemedText>
+          <View style={styles.inputWrapper}>
+            <ThemedText style={styles.inputLabel}>Email Address</ThemedText>
+            <View style={[styles.inputContainer, emailError ? styles.inputError : null]}>
+              <IconSymbol size={20} name="envelope.fill" color="#8E54E9" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your email"
+                placeholderTextColor="#A0A0A0"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text)
+                  setEmailError("")
+                  setGeneralError("")
+                }}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+            {emailError ? <ThemedText style={styles.fieldErrorText}>{emailError}</ThemedText> : null}
+          </View>
+
+          <View style={styles.inputWrapper}>
+            <ThemedText style={styles.inputLabel}>Password</ThemedText>
+            <View style={[styles.inputContainer, passwordError ? styles.inputError : null]}>
+              <IconSymbol size={20} name="lock.fill" color="#8E54E9" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor="#A0A0A0"
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text)
+                  setPasswordError("")
+                  setGeneralError("")
+                }}
+                secureTextEntry
+              />
+            </View>
+            {passwordError ? <ThemedText style={styles.fieldErrorText}>{passwordError}</ThemedText> : null}
+          </View>
+
+          <TouchableOpacity style={styles.forgotPassword}>
+            <ThemedText style={styles.forgotPasswordText}>Forgot Password?</ThemedText>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading} activeOpacity={0.8}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <ThemedText style={styles.loginButtonText}>Sign In</ThemedText>
+                <IconSymbol size={20} name="arrow.right" color="#ffffff" style={styles.buttonIcon} />
+              </>
+            )}
+          </TouchableOpacity>
+
+          {/* Demo login button for testing */}
+          <TouchableOpacity style={styles.demoButton} onPress={handleDemoLogin} activeOpacity={0.8}>
+            <ThemedText style={styles.demoButtonText}>Demo Login (Skip Authentication)</ThemedText>
+          </TouchableOpacity>
+
+          {!isKeyboardVisible && (
+            <View style={styles.footer}>
+              <ThemedText style={styles.footerText}>Don't have an account?</ThemedText>
+              <TouchableOpacity>
+                <ThemedText style={styles.signupText}>Contact Admin</ThemedText>
+              </TouchableOpacity>
+            </View>
           )}
-        </TouchableOpacity>
-      </ThemedView>
-    </LinearGradient>
+        </BlurView>
+      </LinearGradient>
+    </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
+    position: "relative",
+    overflow: "hidden",
+  },
+  backgroundCircle1: {
+    position: "absolute",
+    width: width * 0.8,
+    height: width * 0.8,
+    borderRadius: width * 0.4,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    top: -width * 0.2,
+    left: -width * 0.2,
+  },
+  backgroundCircle2: {
+    position: "absolute",
+    width: width * 0.7,
+    height: width * 0.7,
+    borderRadius: width * 0.35,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    bottom: -width * 0.1,
+    right: -width * 0.1,
   },
   logoContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 40,
+  },
+  logoIcon: {
+    marginBottom: 10,
   },
   logoText: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    marginTop: 10,
+    fontWeight: "bold",
+    color: "#ffffff",
+  },
+  logoSubText: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: 5,
   },
   formContainer: {
-    width: '100%',
+    width: "100%",
     maxWidth: 400,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderRadius: 20,
+    padding: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    overflow: "hidden",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 25,
+    textAlign: "center",
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    padding: 12,
+    borderRadius: 10,
     marginBottom: 20,
-    textAlign: 'center',
+  },
+  errorText: {
+    color: "#FF3B30",
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+  },
+  inputWrapper: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    marginBottom: 15,
-    paddingHorizontal: 10,
-    backgroundColor: '#f9f9f9',
+    borderColor: "#E0E0E0",
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    backgroundColor: "#FFFFFF",
+    height: 55,
+  },
+  inputError: {
+    borderColor: "#FF3B30",
+    borderWidth: 1,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   input: {
     flex: 1,
-    height: 50,
-    color: '#333',
+    height: 55,
+    color: "#333",
+    fontSize: 16,
+  },
+  fieldErrorText: {
+    color: "#FF3B30",
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 5,
   },
   forgotPassword: {
-    alignSelf: 'flex-end',
-    marginBottom: 20,
+    alignSelf: "flex-end",
+    marginBottom: 25,
   },
   forgotPasswordText: {
-    color: '#4c669f',
+    color: "#8E54E9",
     fontSize: 14,
+    fontWeight: "600",
   },
   loginButton: {
-    backgroundColor: '#4c669f',
-    borderRadius: 5,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#8E54E9",
+    borderRadius: 12,
+    height: 55,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    shadowColor: "#8E54E9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
   loginButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
+  },
+  buttonIcon: {
+    marginLeft: 8,
+  },
+  demoButton: {
+    marginTop: 15,
+    backgroundColor: "rgba(142, 84, 233, 0.2)",
+    borderRadius: 12,
+    height: 45,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  demoButtonText: {
+    color: "#8E54E9",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 30,
+  },
+  footerText: {
+    color: "#666",
+    fontSize: 14,
+  },
+  signupText: {
+    color: "#8E54E9",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginLeft: 5,
   },
 })

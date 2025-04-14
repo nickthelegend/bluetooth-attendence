@@ -1,11 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { StyleSheet, ScrollView, TouchableOpacity, TextInput } from "react-native"
+import { StyleSheet, ScrollView, TouchableOpacity, TextInput, View, Dimensions } from "react-native"
+import { LinearGradient } from "expo-linear-gradient"
 
 import { ThemedText } from "@/components/ThemedText"
-import { ThemedView } from "@/components/ThemedView"
 import { IconSymbol } from "@/components/ui/IconSymbol"
+
+const { width } = Dimensions.get("window")
 
 export default function ClassesScreen() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -19,6 +21,7 @@ export default function ClassesScreen() {
       students: 30,
       lastAttendance: "2023-04-14",
       attendanceRate: 92,
+      subject: "Mathematics",
     },
     {
       id: 2,
@@ -27,6 +30,7 @@ export default function ClassesScreen() {
       students: 28,
       lastAttendance: "2023-04-14",
       attendanceRate: 89,
+      subject: "Science",
     },
     {
       id: 3,
@@ -35,6 +39,7 @@ export default function ClassesScreen() {
       students: 35,
       lastAttendance: "2023-04-13",
       attendanceRate: 94,
+      subject: "English",
     },
     {
       id: 4,
@@ -43,6 +48,7 @@ export default function ClassesScreen() {
       students: 25,
       lastAttendance: "2023-04-13",
       attendanceRate: 88,
+      subject: "History",
     },
     {
       id: 5,
@@ -51,6 +57,7 @@ export default function ClassesScreen() {
       students: 32,
       lastAttendance: "2023-04-12",
       attendanceRate: 91,
+      subject: "Geography",
     },
     {
       id: 6,
@@ -59,6 +66,7 @@ export default function ClassesScreen() {
       students: 30,
       lastAttendance: "2023-04-12",
       attendanceRate: 87,
+      subject: "Physics",
     },
   ]
 
@@ -66,107 +74,151 @@ export default function ClassesScreen() {
     ? classes.filter(
         (c) =>
           c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.teacher.toLowerCase().includes(searchQuery.toLowerCase()),
+          c.teacher.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          c.subject.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     : classes
 
+  const getAttendanceColor = (rate) => {
+    if (rate >= 90) return ["#4CAF50", "#81C784"]
+    if (rate >= 75) return ["#FFC107", "#FFD54F"]
+    return ["#F44336", "#E57373"]
+  }
+
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText style={styles.headerTitle}>Classes</ThemedText>
-        <ThemedText style={styles.headerSubtitle}>View and manage classes</ThemedText>
-      </ThemedView>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <LinearGradient colors={["#4776E6", "#8E54E9"]} style={styles.header}>
+        <View style={styles.headerContent}>
+          <ThemedText style={styles.headerTitle}>Classes</ThemedText>
+          <ThemedText style={styles.headerSubtitle}>View and manage classes</ThemedText>
+        </View>
+      </LinearGradient>
 
-      <ThemedView style={styles.searchContainer}>
-        <IconSymbol size={20} name="magnifyingglass" color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search classes or teachers..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </ThemedView>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchWrapper}>
+          <IconSymbol size={20} name="magnifyingglass" color="#8E54E9" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search classes, teachers or subjects..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <IconSymbol size={20} name="xmark.circle.fill" color="#8E54E9" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
 
-      <ThemedView style={styles.statsContainer}>
-        <ThemedView style={styles.statCard}>
-          <IconSymbol size={30} name="person.3.fill" color="#4c669f" />
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <View style={[styles.statIconContainer, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
+            <IconSymbol size={24} name="person.3.fill" color="#8E54E9" />
+          </View>
           <ThemedText style={styles.statNumber}>{classes.length}</ThemedText>
           <ThemedText style={styles.statLabel}>Total Classes</ThemedText>
-        </ThemedView>
+        </View>
 
-        <ThemedView style={styles.statCard}>
-          <IconSymbol size={30} name="person.fill" color="#4c669f" />
+        <View style={styles.statCard}>
+          <View style={[styles.statIconContainer, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
+            <IconSymbol size={24} name="person.fill" color="#4CAF50" />
+          </View>
           <ThemedText style={styles.statNumber}>{classes.reduce((sum, c) => sum + c.students, 0)}</ThemedText>
           <ThemedText style={styles.statLabel}>Total Students</ThemedText>
-        </ThemedView>
+        </View>
 
-        <ThemedView style={styles.statCard}>
-          <IconSymbol size={30} name="chart.bar.fill" color="#4c669f" />
+        <View style={styles.statCard}>
+          <View style={[styles.statIconContainer, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
+            <IconSymbol size={24} name="chart.bar.fill" color="#FFC107" />
+          </View>
           <ThemedText style={styles.statNumber}>
             {Math.round(classes.reduce((sum, c) => sum + c.attendanceRate, 0) / classes.length)}%
           </ThemedText>
           <ThemedText style={styles.statLabel}>Avg. Attendance</ThemedText>
-        </ThemedView>
-      </ThemedView>
+        </View>
+      </View>
 
-      <ThemedView style={styles.classesContainer}>
-        <ThemedView style={styles.sectionHeader}>
+      <View style={styles.classesContainer}>
+        <View style={styles.sectionHeader}>
           <ThemedText style={styles.sectionTitle}>All Classes</ThemedText>
           <TouchableOpacity style={styles.addButton}>
-            <IconSymbol size={20} name="plus" color="#fff" />
-            <ThemedText style={styles.addButtonText}>Add Class</ThemedText>
+            <LinearGradient
+              colors={["#4776E6", "#8E54E9"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.addButtonGradient}
+            >
+              <IconSymbol size={16} name="plus" color="#fff" />
+              <ThemedText style={styles.addButtonText}>Add Class</ThemedText>
+            </LinearGradient>
           </TouchableOpacity>
-        </ThemedView>
+        </View>
 
-        {filteredClasses.map((classItem) => (
-          <ThemedView key={classItem.id} style={styles.classCard}>
-            <ThemedView style={styles.classHeader}>
-              <ThemedView style={styles.classNameContainer}>
-                <ThemedText style={styles.className}>{classItem.name}</ThemedText>
+        {filteredClasses.map((classItem) => {
+          const attendanceColors = getAttendanceColor(classItem.attendanceRate)
+
+          return (
+            <View key={classItem.id} style={styles.classCard}>
+              <View style={styles.classHeader}>
+                <View style={styles.classNameContainer}>
+                  <ThemedText style={styles.className}>{classItem.name}</ThemedText>
+                  <View style={styles.classSubjectContainer}>
+                    <IconSymbol size={14} name="book.fill" color="#8E54E9" style={styles.subjectIcon} />
+                    <ThemedText style={styles.classSubject}>{classItem.subject}</ThemedText>
+                  </View>
+                </View>
+                <LinearGradient
+                  colors={attendanceColors}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.attendanceRateBadge}
+                >
+                  <ThemedText style={styles.attendanceRateText}>{classItem.attendanceRate}%</ThemedText>
+                </LinearGradient>
+              </View>
+
+              <View style={styles.classTeacherContainer}>
+                <IconSymbol size={16} name="person.fill" color="#666" style={styles.teacherIcon} />
                 <ThemedText style={styles.classTeacher}>{classItem.teacher}</ThemedText>
-              </ThemedView>
-              <ThemedView
-                style={[
-                  styles.attendanceRateBadge,
-                  classItem.attendanceRate >= 90
-                    ? styles.highAttendance
-                    : classItem.attendanceRate >= 80
-                      ? styles.mediumAttendance
-                      : styles.lowAttendance,
-                ]}
-              >
-                <ThemedText style={styles.attendanceRateText}>{classItem.attendanceRate}%</ThemedText>
-              </ThemedView>
-            </ThemedView>
+              </View>
 
-            <ThemedView style={styles.classDetails}>
-              <ThemedView style={styles.detailItem}>
-                <IconSymbol size={16} name="person.fill" color="#666" />
-                <ThemedText style={styles.detailText}>{classItem.students} Students</ThemedText>
-              </ThemedView>
-              <ThemedView style={styles.detailItem}>
-                <IconSymbol size={16} name="calendar" color="#666" />
-                <ThemedText style={styles.detailText}>Last: {classItem.lastAttendance}</ThemedText>
-              </ThemedView>
-            </ThemedView>
+              <View style={styles.classDetails}>
+                <View style={styles.detailItem}>
+                  <IconSymbol size={16} name="person.3.fill" color="#666" />
+                  <ThemedText style={styles.detailText}>{classItem.students} Students</ThemedText>
+                </View>
+                <View style={styles.detailItem}>
+                  <IconSymbol size={16} name="calendar" color="#666" />
+                  <ThemedText style={styles.detailText}>Last: {classItem.lastAttendance}</ThemedText>
+                </View>
+              </View>
 
-            <ThemedView style={styles.classActions}>
-              <TouchableOpacity style={styles.actionButton}>
-                <IconSymbol size={16} name="person.badge.clock.fill" color="#4c669f" />
-                <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <IconSymbol size={16} name="doc.text.fill" color="#4c669f" />
-                <ThemedText style={styles.actionButtonText}>View Report</ThemedText>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <IconSymbol size={16} name="pencil" color="#4c669f" />
-                <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
-              </TouchableOpacity>
-            </ThemedView>
-          </ThemedView>
-        ))}
-      </ThemedView>
+              <View style={styles.classActions}>
+                <TouchableOpacity style={styles.actionButton}>
+                  <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
+                    <IconSymbol size={16} name="person.badge.clock.fill" color="#8E54E9" />
+                  </View>
+                  <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButton}>
+                  <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
+                    <IconSymbol size={16} name="doc.text.fill" color="#4CAF50" />
+                  </View>
+                  <ThemedText style={styles.actionButtonText}>View Report</ThemedText>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButton}>
+                  <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
+                    <IconSymbol size={16} name="pencil" color="#FFC107" />
+                  </View>
+                  <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
+        })}
+      </View>
     </ScrollView>
   )
 }
@@ -174,34 +226,44 @@ export default function ClassesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F8F9FA",
   },
   header: {
-    padding: 20,
-    paddingTop: 10,
+    paddingTop: 20,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerContent: {
+    paddingHorizontal: 20,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
+    color: "#FFFFFF",
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
     marginTop: 5,
   },
   searchContainer: {
+    paddingHorizontal: 20,
+    marginTop: -20,
+    marginBottom: 20,
+  },
+  searchWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginHorizontal: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 15,
     paddingHorizontal: 15,
+    height: 50,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   searchIcon: {
     marginRight: 10,
@@ -210,23 +272,33 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     color: "#333",
+    fontSize: 16,
   },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 20,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   statCard: {
-    backgroundColor: "#fff",
-    width: "31%",
-    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    width: width * 0.28,
+    borderRadius: 15,
     padding: 15,
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  statIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
   statNumber: {
     fontSize: 20,
@@ -255,12 +327,14 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   addButton: {
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  addButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#4c669f",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 5,
   },
   addButtonText: {
     color: "#fff",
@@ -269,15 +343,15 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   classCard: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 15,
     padding: 15,
     marginBottom: 15,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 3,
   },
   classHeader: {
     flexDirection: "row",
@@ -293,30 +367,42 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
   },
+  classSubjectContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 5,
+  },
+  subjectIcon: {
+    marginRight: 5,
+  },
+  classSubject: {
+    fontSize: 14,
+    color: "#8E54E9",
+    fontWeight: "500",
+  },
+  classTeacherContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  teacherIcon: {
+    marginRight: 5,
+  },
   classTeacher: {
     fontSize: 14,
     color: "#666",
-    marginTop: 5,
   },
   attendanceRateBadge: {
     paddingVertical: 5,
     paddingHorizontal: 10,
-    borderRadius: 15,
+    borderRadius: 10,
     minWidth: 60,
     alignItems: "center",
-  },
-  highAttendance: {
-    backgroundColor: "#e6f7e6",
-  },
-  mediumAttendance: {
-    backgroundColor: "#fff2e6",
-  },
-  lowAttendance: {
-    backgroundColor: "#ffe6e6",
   },
   attendanceRateText: {
     fontWeight: "bold",
     fontSize: 14,
+    color: "#FFFFFF",
   },
   classDetails: {
     flexDirection: "row",
@@ -336,7 +422,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: "#F0F0F0",
     paddingTop: 15,
   },
   actionButton: {
@@ -345,9 +431,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     flex: 1,
   },
+  actionButtonIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 5,
+  },
   actionButtonText: {
     fontSize: 12,
-    color: "#4c669f",
-    marginLeft: 5,
+    color: "#666",
   },
 })
