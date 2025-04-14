@@ -1,29 +1,64 @@
 "use client"
 
 import { useState } from "react"
-import { StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, View, Dimensions } from "react-native"
+import { StyleSheet, ScrollView, TouchableOpacity, TextInput, View, Dimensions, StatusBar } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
-
 import { ThemedText } from "@/components/ThemedText"
-import { ThemedView } from "@/components/ThemedView"
-import { IconSymbol } from "@/components/ui/IconSymbol"
+import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons"
 
 const { width } = Dimensions.get("window")
 
 export default function AttendanceScreen() {
   const [selectedClass, setSelectedClass] = useState(null)
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0])
+  const [date, setDate] = useState("2025-04-14")
+  const [showCalendar, setShowCalendar] = useState(false)
 
   // Mock data for classes
   const classes = [
-    { id: 1, name: "Class 10-A", students: 30, subject: "Mathematics" },
-    { id: 2, name: "Class 9-B", students: 28, subject: "Science" },
-    { id: 3, name: "Class 11-C", students: 35, subject: "English" },
-    { id: 4, name: "Class 12-D", students: 25, subject: "History" },
+    {
+      id: 1,
+      name: "Class 10-A",
+      students: 30,
+      subject: "Mathematics",
+      teacher: "Mr. Johnson",
+      time: "9:00 AM - 10:30 AM",
+      room: "Room 101",
+      color: ["#4776E6", "#8E54E9"],
+    },
+    {
+      id: 2,
+      name: "Class 9-B",
+      students: 28,
+      subject: "Science",
+      teacher: "Mrs. Smith",
+      time: "11:00 AM - 12:30 PM",
+      room: "Room 203",
+      color: ["#FF9966", "#FF5E62"],
+    },
+    {
+      id: 3,
+      name: "Class 11-C",
+      students: 35,
+      subject: "English",
+      teacher: "Mr. Davis",
+      time: "1:00 PM - 2:30 PM",
+      room: "Room 305",
+      color: ["#56ab2f", "#a8e063"],
+    },
+    {
+      id: 4,
+      name: "Class 12-D",
+      students: 25,
+      subject: "History",
+      teacher: "Ms. Wilson",
+      time: "3:00 PM - 4:30 PM",
+      room: "Room 402",
+      color: ["#36D1DC", "#5B86E5"],
+    },
   ]
 
-  // Mock data for students (only shown when a class is selected)
-  const students = [
+  // Mock data for students
+  const allStudents = [
     { id: 1, name: "John Doe", rollNo: "101", present: true, avatar: "J" },
     { id: 2, name: "Jane Smith", rollNo: "102", present: true, avatar: "J" },
     { id: 3, name: "Michael Johnson", rollNo: "103", present: false, avatar: "M" },
@@ -36,7 +71,7 @@ export default function AttendanceScreen() {
     { id: 10, name: "Sophia Rodriguez", rollNo: "110", present: true, avatar: "S" },
   ]
 
-  const [studentList, setStudentList] = useState(students)
+  const [studentList, setStudentList] = useState(allStudents)
 
   const toggleAttendance = (id) => {
     setStudentList(
@@ -53,176 +88,166 @@ export default function AttendanceScreen() {
   }
 
   const getAttendanceStats = () => {
-    const present = studentList.filter(s => s.present).length
+    const present = studentList.filter((s) => s.present).length
     const absent = studentList.length - present
     const presentPercentage = Math.round((present / studentList.length) * 100)
-    
+
     return { present, absent, presentPercentage }
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <LinearGradient colors={["#4776E6", "#8E54E9"]} style={styles.header}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#8E54E9" />
+      <LinearGradient colors={["#8E54E9", "#4776E6"]} style={styles.header}>
         <View style={styles.headerContent}>
           <ThemedText style={styles.headerTitle}>Take Attendance</ThemedText>
           <ThemedText style={styles.headerSubtitle}>Mark student attendance</ThemedText>
         </View>
       </LinearGradient>
 
-      <View style={styles.datePickerContainer}>
-        <View style={styles.datePickerWrapper}>
-          <IconSymbol size={20} name="calendar" color="#8E54E9" style={styles.dateIcon} />
-          <TextInput
-            style={styles.dateInput}
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="#999"
-          />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.datePickerContainer}>
+          <TouchableOpacity style={styles.datePickerWrapper} onPress={() => setShowCalendar(!showCalendar)}>
+            <MaterialIcons name="calendar-today" size={20} color="#8E54E9" style={styles.dateIcon} />
+            <TextInput
+              style={styles.dateInput}
+              value={date}
+              onChangeText={setDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor="#999"
+              editable={false}
+            />
+            <MaterialIcons name="arrow-drop-down" size={24} color="#8E54E9" />
+          </TouchableOpacity>
         </View>
-      </View>
 
-      <View style={styles.sectionContainer}>
-        <ThemedText style={styles.sectionTitle}>Select Class</ThemedText>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classCardsContainer}>
-          {classes.map((classItem) => (
-            <TouchableOpacity
-              key={classItem.id}
-              style={[styles.classCard, selectedClass === classItem.id && styles.selectedClassCard]}
-              onPress={() => setSelectedClass(classItem.id)}
-            >
-              <LinearGradient
-                colors={selectedClass === classItem.id ? ["#4776E6", "#8E54E9"] : ["#F8F9FA", "#F8F9FA"]}
-                style={styles.classCardGradient}
-              >
-                <View style={styles.classCardIcon}>
-                  <IconSymbol
-                    size={24}
-                    name="person.3.fill"
-                    color={selectedClass === classItem.id ? "#FFFFFF" : "#8E54E9"}
-                  />
-                </View>
-                <ThemedText
-                  style={[styles.classCardName, selectedClass === classItem.id && styles.selectedClassText]}
-                >
-                  {classItem.name}
-                </ThemedText>
-                <ThemedText
-                  style={[styles.classCardSubject, selectedClass === classItem.id && styles.selectedClassText]}
-                >
-                  {classItem.subject}
-                </ThemedText>
-                <ThemedText
-                  style={[styles.classCardStudents, selectedClass === classItem.id && styles.selectedClassText]}
-                >
-                  {classItem.students} Students
-                </ThemedText>
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {selectedClass && (
-        <>
-          <View style={styles.attendanceStatsContainer}>
-            <View style={styles.attendanceStatsCard}>
-              <View style={styles.attendanceStatsRow}>
-                <View style={styles.attendanceStatItem}>
-                  <ThemedText style={styles.attendanceStatLabel}>Present</ThemedText>
-                  <ThemedText style={styles.attendanceStatValue}>{getAttendanceStats().present}</ThemedText>
-                </View>
-                <View style={styles.attendanceStatItem}>
-                  <ThemedText style={styles.attendanceStatLabel}>Absent</ThemedText>
-                  <ThemedText style={styles.attendanceStatValue}>{getAttendanceStats().absent}</ThemedText>
-                </View>
-                <View style={styles.attendanceStatItem}>
-                  <ThemedText style={styles.attendanceStatLabel}>Percentage</ThemedText>
-                  <ThemedText style={styles.attendanceStatValue}>{getAttendanceStats().presentPercentage}%</ThemedText>
-                </View>
-              </View>
-              <View style={styles.attendanceProgressBar}>
-                <View
-                  style={[
-                    styles.attendanceProgressFill,
-                    { width: `${getAttendanceStats().presentPercentage}%` },
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
-
+        {!selectedClass ? (
           <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <ThemedText style={styles.sectionTitle}>Student Attendance</ThemedText>
-              <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.actionButton} onPress={markAllPresent}>
+            <ThemedText style={styles.sectionTitle}>Select Class</ThemedText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classCardsContainer}>
+              {classes.map((classItem) => (
+                <TouchableOpacity
+                  key={classItem.id}
+                  style={styles.classCard}
+                  onPress={() => setSelectedClass(classItem.id)}
+                  activeOpacity={0.8}
+                >
                   <LinearGradient
-                    colors={["#4CAF50", "#81C784"]}
+                    colors={classItem.color}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.actionButtonGradient}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.classCardGradient}
                   >
-                    <ThemedText style={styles.actionButtonText}>All Present</ThemedText>
+                    <View style={styles.classCardIcon}>
+                      <Ionicons name="people" size={24} color="#FFFFFF" />
+                    </View>
+                    <ThemedText style={styles.classCardName}>{classItem.name}</ThemedText>
+                    <ThemedText style={styles.classCardSubject}>{classItem.subject}</ThemedText>
+                    <ThemedText style={styles.classCardStudents}>{classItem.students} Students</ThemedText>
                   </LinearGradient>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton} onPress={markAllAbsent}>
-                  <LinearGradient
-                    colors={["#F44336", "#E57373"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.actionButtonGradient}
-                  >
-                    <ThemedText style={styles.actionButtonText}>All Absent</ThemedText>
-                  </LinearGradient>
-                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : (
+          <>
+            <View style={styles.attendanceStatsContainer}>
+              <View style={styles.attendanceStatsCard}>
+                <View style={styles.attendanceStatsRow}>
+                  <View style={styles.attendanceStatItem}>
+                    <ThemedText style={styles.attendanceStatLabel}>Present</ThemedText>
+                    <ThemedText style={styles.attendanceStatValue}>{getAttendanceStats().present}</ThemedText>
+                  </View>
+                  <View style={styles.attendanceStatItem}>
+                    <ThemedText style={styles.attendanceStatLabel}>Absent</ThemedText>
+                    <ThemedText style={styles.attendanceStatValue}>{getAttendanceStats().absent}</ThemedText>
+                  </View>
+                  <View style={styles.attendanceStatItem}>
+                    <ThemedText style={styles.attendanceStatLabel}>Percentage</ThemedText>
+                    <ThemedText style={styles.attendanceStatValue}>
+                      {getAttendanceStats().presentPercentage}%
+                    </ThemedText>
+                  </View>
+                </View>
+                <View style={styles.attendanceProgressBar}>
+                  <View
+                    style={[styles.attendanceProgressFill, { width: `${getAttendanceStats().presentPercentage}%` }]}
+                  />
+                </View>
               </View>
             </View>
 
-            <View style={styles.studentList}>
-              {studentList.map((student) => (
-                <View key={student.id} style={styles.studentCard}>
-                  <View style={styles.studentAvatarContainer}>
-                    <View
-                      style={[
-                        styles.studentAvatar,
-                        { backgroundColor: student.present ? "#8E54E9" : "#F44336" },
-                      ]}
+            <View style={styles.sectionContainer}>
+              <View style={styles.sectionHeader}>
+                <ThemedText style={styles.sectionTitle}>Student Attendance</ThemedText>
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity style={styles.actionButton} onPress={markAllPresent}>
+                    <LinearGradient
+                      colors={["#4CAF50", "#81C784"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.actionButtonGradient}
                     >
-                      <ThemedText style={styles.studentAvatarText}>{student.avatar}</ThemedText>
-                    </View>
-                  </View>
-                  <View style={styles.studentInfo}>
-                    <ThemedText style={styles.studentName}>{student.name}</ThemedText>
-                    <ThemedText style={styles.studentRoll}>Roll No: {student.rollNo}</ThemedText>
-                  </View>
-                  <Switch
-                    value={student.present}
-                    onValueChange={() => toggleAttendance(student.id)}
-                    trackColor={{ false: "#ffcdd2", true: "#d1c4e9" }}
-                    thumbColor={student.present ? "#8E54E9" : "#F44336"}
-                    ios_backgroundColor="#ffcdd2"
-                    style={styles.attendanceSwitch}
-                  />
+                      <ThemedText style={styles.actionButtonText}>All Present</ThemedText>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionButton} onPress={markAllAbsent}>
+                    <LinearGradient
+                      colors={["#F44336", "#E57373"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.actionButtonGradient}
+                    >
+                      <ThemedText style={styles.actionButtonText}>All Absent</ThemedText>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-              ))}
-            </View>
+              </View>
 
-            <TouchableOpacity style={styles.submitButton}>
-              <LinearGradient
-                colors={["#4776E6", "#8E54E9"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.submitGradient}
-              >
-                <ThemedText style={styles.submitButtonText}>Submit Attendance</ThemedText>
-                <IconSymbol size={20} name="checkmark.circle.fill" color="#FFFFFF" style={styles.submitIcon} />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-    </ScrollView>
+              <View style={styles.studentList}>
+                {studentList.map((student) => (
+                  <View key={student.id} style={styles.studentCard}>
+                    <View style={styles.studentAvatarContainer}>
+                      <View
+                        style={[styles.studentAvatar, { backgroundColor: student.present ? "#8E54E9" : "#F44336" }]}
+                      >
+                        <ThemedText style={styles.studentAvatarText}>{student.avatar}</ThemedText>
+                      </View>
+                    </View>
+                    <View style={styles.studentInfo}>
+                      <ThemedText style={styles.studentName}>{student.name}</ThemedText>
+                      <ThemedText style={styles.studentRoll}>Roll No: {student.rollNo}</ThemedText>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.attendanceToggle, student.present ? styles.presentToggle : styles.absentToggle]}
+                      onPress={() => toggleAttendance(student.id)}
+                    >
+                      {student.present ? (
+                        <FontAwesome5 name="check" size={16} color="#4CAF50" />
+                      ) : (
+                        <FontAwesome5 name="times" size={16} color="#F44336" />
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+
+              <TouchableOpacity style={styles.submitButton}>
+                <LinearGradient
+                  colors={["#4776E6", "#8E54E9"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.submitGradient}
+                >
+                  <ThemedText style={styles.submitButtonText}>Submit Attendance</ThemedText>
+                  <MaterialIcons name="check-circle" size={20} color="#FFFFFF" style={styles.submitIcon} />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
   )
 }
 
@@ -232,13 +257,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
   },
   header: {
-    paddingTop: 20,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   headerContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 5,
   },
   headerTitle: {
     fontSize: 24,
@@ -250,9 +274,12 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.8)",
     marginTop: 5,
   },
+  content: {
+    flex: 1,
+  },
   datePickerContainer: {
     paddingHorizontal: 20,
-    marginTop: -20,
+    marginTop: 15,
     marginBottom: 20,
   },
   datePickerWrapper: {
@@ -309,7 +336,7 @@ const styles = StyleSheet.create({
   },
   classCardGradient: {
     padding: 15,
-    height: "100%",
+    height: 180,
     alignItems: "center",
   },
   classCardIcon: {
@@ -324,23 +351,22 @@ const styles = StyleSheet.create({
   classCardName: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: "#FFFFFF",
     textAlign: "center",
   },
   classCardSubject: {
     fontSize: 14,
-    color: "#666",
+    color: "#FFFFFF",
     marginTop: 5,
     textAlign: "center",
+    opacity: 0.9,
   },
   classCardStudents: {
     fontSize: 12,
-    color: "#666",
+    color: "#FFFFFF",
     marginTop: 5,
     textAlign: "center",
-  },
-  selectedClassText: {
-    color: "#FFFFFF",
+    opacity: 0.8,
   },
   attendanceStatsContainer: {
     paddingHorizontal: 20,
@@ -446,8 +472,21 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 5,
   },
-  attendanceSwitch: {
-    transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }],
+  attendanceToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  presentToggle: {
+    borderColor: "#4CAF50",
+    backgroundColor: "rgba(76, 175, 80, 0.1)",
+  },
+  absentToggle: {
+    borderColor: "#F44336",
+    backgroundColor: "rgba(244, 67, 54, 0.1)",
   },
   submitButton: {
     marginTop: 20,
@@ -470,4 +509,3 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
 })
-
