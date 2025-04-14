@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { StyleSheet, ScrollView, TouchableOpacity, TextInput, View, Dimensions } from "react-native"
+import { StyleSheet, ScrollView, TouchableOpacity, TextInput, View, Dimensions, StatusBar } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
-
 import { ThemedText } from "@/components/ThemedText"
-import { IconSymbol } from "@/components/ui/IconSymbol"
+import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons"
 
 const { width } = Dimensions.get("window")
 
@@ -85,141 +84,158 @@ export default function ClassesScreen() {
     return ["#F44336", "#E57373"]
   }
 
+  // Function to toggle drawer from parent component
+  const toggleDrawer = () => {
+    // This will be handled by the drawer context in _layout.tsx
+    global.toggleDrawer && global.toggleDrawer()
+  }
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <LinearGradient colors={["#4776E6", "#8E54E9"]} style={styles.header}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#8E54E9" />
+      <LinearGradient colors={["#8E54E9", "#4776E6"]} style={styles.header}>
         <View style={styles.headerContent}>
-          <ThemedText style={styles.headerTitle}>Classes</ThemedText>
-          <ThemedText style={styles.headerSubtitle}>View and manage classes</ThemedText>
+          <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+            <MaterialIcons name="menu" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View>
+            <ThemedText style={styles.headerTitle}>Classes</ThemedText>
+            <ThemedText style={styles.headerSubtitle}>View and manage classes</ThemedText>
+          </View>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Ionicons name="notifications" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchWrapper}>
-          <IconSymbol size={20} name="magnifyingglass" color="#8E54E9" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search classes, teachers or subjects..."
-            placeholderTextColor="#999"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <IconSymbol size={20} name="xmark.circle.fill" color="#8E54E9" />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <View style={[styles.statIconContainer, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
-            <IconSymbol size={24} name="person.3.fill" color="#8E54E9" />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchWrapper}>
+            <MaterialIcons name="search" size={20} color="#8E54E9" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search classes, teachers or subjects..."
+              placeholderTextColor="#999"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery("")}>
+                <MaterialIcons name="cancel" size={20} color="#8E54E9" />
+              </TouchableOpacity>
+            ) : null}
           </View>
-          <ThemedText style={styles.statNumber}>{classes.length}</ThemedText>
-          <ThemedText style={styles.statLabel}>Total Classes</ThemedText>
         </View>
 
-        <View style={styles.statCard}>
-          <View style={[styles.statIconContainer, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
-            <IconSymbol size={24} name="person.fill" color="#4CAF50" />
-          </View>
-          <ThemedText style={styles.statNumber}>{classes.reduce((sum, c) => sum + c.students, 0)}</ThemedText>
-          <ThemedText style={styles.statLabel}>Total Students</ThemedText>
-        </View>
-
-        <View style={styles.statCard}>
-          <View style={[styles.statIconContainer, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
-            <IconSymbol size={24} name="chart.bar.fill" color="#FFC107" />
-          </View>
-          <ThemedText style={styles.statNumber}>
-            {Math.round(classes.reduce((sum, c) => sum + c.attendanceRate, 0) / classes.length)}%
-          </ThemedText>
-          <ThemedText style={styles.statLabel}>Avg. Attendance</ThemedText>
-        </View>
-      </View>
-
-      <View style={styles.classesContainer}>
-        <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>All Classes</ThemedText>
-          <TouchableOpacity style={styles.addButton}>
-            <LinearGradient
-              colors={["#4776E6", "#8E54E9"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.addButtonGradient}
-            >
-              <IconSymbol size={16} name="plus" color="#fff" />
-              <ThemedText style={styles.addButtonText}>Add Class</ThemedText>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {filteredClasses.map((classItem) => {
-          const attendanceColors = getAttendanceColor(classItem.attendanceRate)
-
-          return (
-            <View key={classItem.id} style={styles.classCard}>
-              <View style={styles.classHeader}>
-                <View style={styles.classNameContainer}>
-                  <ThemedText style={styles.className}>{classItem.name}</ThemedText>
-                  <View style={styles.classSubjectContainer}>
-                    <IconSymbol size={14} name="book.fill" color="#8E54E9" style={styles.subjectIcon} />
-                    <ThemedText style={styles.classSubject}>{classItem.subject}</ThemedText>
-                  </View>
-                </View>
-                <LinearGradient
-                  colors={attendanceColors}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.attendanceRateBadge}
-                >
-                  <ThemedText style={styles.attendanceRateText}>{classItem.attendanceRate}%</ThemedText>
-                </LinearGradient>
-              </View>
-
-              <View style={styles.classTeacherContainer}>
-                <IconSymbol size={16} name="person.fill" color="#666" style={styles.teacherIcon} />
-                <ThemedText style={styles.classTeacher}>{classItem.teacher}</ThemedText>
-              </View>
-
-              <View style={styles.classDetails}>
-                <View style={styles.detailItem}>
-                  <IconSymbol size={16} name="person.3.fill" color="#666" />
-                  <ThemedText style={styles.detailText}>{classItem.students} Students</ThemedText>
-                </View>
-                <View style={styles.detailItem}>
-                  <IconSymbol size={16} name="calendar" color="#666" />
-                  <ThemedText style={styles.detailText}>Last: {classItem.lastAttendance}</ThemedText>
-                </View>
-              </View>
-
-              <View style={styles.classActions}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
-                    <IconSymbol size={16} name="person.badge.clock.fill" color="#8E54E9" />
-                  </View>
-                  <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
-                    <IconSymbol size={16} name="doc.text.fill" color="#4CAF50" />
-                  </View>
-                  <ThemedText style={styles.actionButtonText}>View Report</ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
-                    <IconSymbol size={16} name="pencil" color="#FFC107" />
-                  </View>
-                  <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
-                </TouchableOpacity>
-              </View>
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
+              <Ionicons name="school" size={24} color="#8E54E9" />
             </View>
-          )
-        })}
-      </View>
-    </ScrollView>
+            <ThemedText style={styles.statNumber}>{classes.length}</ThemedText>
+            <ThemedText style={styles.statLabel}>Total Classes</ThemedText>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
+              <Ionicons name="people" size={24} color="#4CAF50" />
+            </View>
+            <ThemedText style={styles.statNumber}>{classes.reduce((sum, c) => sum + c.students, 0)}</ThemedText>
+            <ThemedText style={styles.statLabel}>Total Students</ThemedText>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
+              <MaterialIcons name="bar-chart" size={24} color="#FFC107" />
+            </View>
+            <ThemedText style={styles.statNumber}>
+              {Math.round(classes.reduce((sum, c) => sum + c.attendanceRate, 0) / classes.length)}%
+            </ThemedText>
+            <ThemedText style={styles.statLabel}>Avg. Attendance</ThemedText>
+          </View>
+        </View>
+
+        <View style={styles.classesContainer}>
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>All Classes</ThemedText>
+            <TouchableOpacity style={styles.addButton}>
+              <LinearGradient
+                colors={["#4776E6", "#8E54E9"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.addButtonGradient}
+              >
+                <MaterialIcons name="add" size={16} color="#fff" />
+                <ThemedText style={styles.addButtonText}>Add Class</ThemedText>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {filteredClasses.map((classItem) => {
+            const attendanceColors = getAttendanceColor(classItem.attendanceRate)
+
+            return (
+              <View key={classItem.id} style={styles.classCard}>
+                <View style={styles.classHeader}>
+                  <View style={styles.classNameContainer}>
+                    <ThemedText style={styles.className}>{classItem.name}</ThemedText>
+                    <View style={styles.classSubjectContainer}>
+                      <Ionicons name="book" size={14} color="#8E54E9" style={styles.subjectIcon} />
+                      <ThemedText style={styles.classSubject}>{classItem.subject}</ThemedText>
+                    </View>
+                  </View>
+                  <LinearGradient
+                    colors={attendanceColors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.attendanceRateBadge}
+                  >
+                    <ThemedText style={styles.attendanceRateText}>{classItem.attendanceRate}%</ThemedText>
+                  </LinearGradient>
+                </View>
+
+                <View style={styles.classTeacherContainer}>
+                  <Ionicons name="person" size={16} color="#666" style={styles.teacherIcon} />
+                  <ThemedText style={styles.classTeacher}>{classItem.teacher}</ThemedText>
+                </View>
+
+                <View style={styles.classDetails}>
+                  <View style={styles.detailItem}>
+                    <Ionicons name="people" size={16} color="#666" />
+                    <ThemedText style={styles.detailText}>{classItem.students} Students</ThemedText>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <MaterialIcons name="calendar-today" size={16} color="#666" />
+                    <ThemedText style={styles.detailText}>Last: {classItem.lastAttendance}</ThemedText>
+                  </View>
+                </View>
+
+                <View style={styles.classActions}>
+                  <TouchableOpacity style={styles.actionButton}>
+                    <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
+                      <FontAwesome5 name="user-check" size={16} color="#8E54E9" />
+                    </View>
+                    <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionButton}>
+                    <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
+                      <MaterialIcons name="description" size={16} color="#4CAF50" />
+                    </View>
+                    <ThemedText style={styles.actionButtonText}>View Report</ThemedText>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionButton}>
+                    <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
+                      <MaterialIcons name="edit" size={16} color="#FFC107" />
+                    </View>
+                    <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
+          })}
+        </View>
+      </ScrollView>
+    </View>
   )
 }
 
@@ -229,27 +245,48 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  headerContent: {
+    paddingTop: 40,
+    paddingBottom: 20,
     paddingHorizontal: 20,
   },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#FFFFFF",
+    textAlign: "center",
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: "rgba(255, 255, 255, 0.8)",
-    marginTop: 5,
+    textAlign: "center",
+  },
+  content: {
+    flex: 1,
   },
   searchContainer: {
     paddingHorizontal: 20,
-    marginTop: -20,
+    marginTop: 15,
     marginBottom: 20,
   },
   searchWrapper: {

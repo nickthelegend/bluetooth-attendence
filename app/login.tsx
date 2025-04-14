@@ -20,7 +20,7 @@ import { StatusBar } from "expo-status-bar"
 import { BlurView } from "expo-blur"
 
 import { ThemedText } from "@/components/ThemedText"
-import { IconSymbol } from "@/components/ui/IconSymbol"
+import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons"
 
 // Initialize Supabase client
 const supabaseUrl = 'https://oquvqaiisiilhbvoopoi.supabase.co'
@@ -126,11 +126,6 @@ export default function LoginScreen() {
     }
   }
 
-  // For demo purposes - quick login without authentication
-  const handleDemoLogin = () => {
-    router.replace("/(tabs)")
-  }
-
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
       <StatusBar style="light" />
@@ -144,9 +139,13 @@ export default function LoginScreen() {
         <View style={styles.backgroundCircle2} />
 
         <View style={styles.logoContainer}>
-          <IconSymbol size={60} name="building.columns.fill" color="#ffffff" style={styles.logoIcon} />
-          <ThemedText style={styles.logoText}>Staff Attendance</ThemedText>
-          <ThemedText style={styles.logoSubText}>Management System</ThemedText>
+          <View style={styles.logoIconContainer}>
+            <FontAwesome5 name="user-check" size={40} color="#ffffff" style={styles.logoIcon} />
+          </View>
+          <View style={styles.logoTextContainer}>
+            <ThemedText style={styles.logoText}>Staff Attendance</ThemedText>
+            <ThemedText style={styles.logoSubText}>Management System</ThemedText>
+          </View>
         </View>
 
         <BlurView intensity={30} tint="light" style={styles.formContainer}>
@@ -155,7 +154,7 @@ export default function LoginScreen() {
 
           {generalError ? (
             <View style={styles.errorContainer}>
-              <IconSymbol size={16} name="exclamationmark.triangle.fill" color="#FF3B30" />
+              <MaterialIcons name="error-outline" size={16} color="#FF3B30" />
               <ThemedText style={styles.errorText}>{generalError}</ThemedText>
             </View>
           ) : null}
@@ -163,7 +162,7 @@ export default function LoginScreen() {
           <View style={styles.inputWrapper}>
             <ThemedText style={styles.inputLabel}>Email Address</ThemedText>
             <View style={[styles.inputContainer, emailError ? styles.inputError : null]}>
-              <IconSymbol size={20} name="envelope.fill" color="#8E54E9" style={styles.inputIcon} />
+              <MaterialIcons name="email" size={20} color="#8E54E9" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your email"
@@ -184,7 +183,7 @@ export default function LoginScreen() {
           <View style={styles.inputWrapper}>
             <ThemedText style={styles.inputLabel}>Password</ThemedText>
             <View style={[styles.inputContainer, passwordError ? styles.inputError : null]}>
-              <IconSymbol size={20} name="lock.fill" color="#8E54E9" style={styles.inputIcon} />
+              <MaterialIcons name="lock" size={20} color="#8E54E9" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 placeholder="Enter your password"
@@ -211,14 +210,9 @@ export default function LoginScreen() {
             ) : (
               <>
                 <ThemedText style={styles.loginButtonText}>Sign In</ThemedText>
-                <IconSymbol size={20} name="arrow.right" color="#ffffff" style={styles.buttonIcon} />
+                <MaterialIcons name="arrow-forward" size={20} color="#ffffff" style={styles.buttonIcon} />
               </>
             )}
-          </TouchableOpacity>
-
-          {/* Demo login button for testing */}
-          <TouchableOpacity style={styles.demoButton} onPress={handleDemoLogin} activeOpacity={0.8}>
-            <ThemedText style={styles.demoButtonText}>Demo Login (Skip Authentication)</ThemedText>
           </TouchableOpacity>
 
           {!isKeyboardVisible && (
@@ -265,14 +259,30 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: "center",
     marginBottom: 40,
+    flexDirection: "row",
+  },
+  logoIconContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 15,
   },
   logoIcon: {
-    marginBottom: 10,
+    marginBottom: 0,
+  },
+  logoTextContainer: {
+    flexDirection: "column",
   },
   logoText: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#ffffff",
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   logoSubText: {
     fontSize: 16,
@@ -385,19 +395,6 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     marginLeft: 8,
-  },
-  demoButton: {
-    marginTop: 15,
-    backgroundColor: "rgba(142, 84, 233, 0.2)",
-    borderRadius: 12,
-    height: 45,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  demoButtonText: {
-    color: "#8E54E9",
-    fontSize: 14,
-    fontWeight: "600",
   },
   footer: {
     flexDirection: "row",

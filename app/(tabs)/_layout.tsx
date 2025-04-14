@@ -5,14 +5,12 @@ import { createClient } from "@supabase/supabase-js"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useColorScheme } from "@/hooks/useColorScheme"
 import { useRouter } from "expo-router"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Drawer } from "react-native-drawer-layout"
 import { ThemedText } from "@/components/ThemedText"
 import { ThemedView } from "@/components/ThemedView"
 import { LinearGradient } from "expo-linear-gradient"
 import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons"
-
-// Initialize Supabase client
 const supabaseUrl = 'https://oquvqaiisiilhbvoopoi.supabase.co'
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdXZxYWlpc2lpbGhidm9vcG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NjcwNDksImV4cCI6MjA2MDE0MzA0OX0.XZT2SaLizGo8LWuFv3zRjHwuF-dzsSzCrKFNKuYe8Xs'
 
@@ -35,15 +33,28 @@ export default function TabLayout() {
   const [user, setUser] = useState(null)
 
   // Get user info
-  supabase.auth.getUser().then(({ data }) => {
-    if (data && data.user) {
-      setUser(data.user)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data && data.user) {
+        setUser(data.user)
+      }
+    })
+
+    // Make toggleDrawer available globally
+    global.toggleDrawer = () => setIsDrawerOpen((prev) => !prev)
+
+    return () => {
+      delete global.toggleDrawer
     }
-  })
+  }, [])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.replace("/login")
+    try {
+      await supabase.auth.signOut()
+      router.replace("/login")
+    } catch (error) {
+      console.error("Error signing out:", error)
+    }
   }
 
   const handleSettings = () => {

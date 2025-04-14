@@ -1,13 +1,16 @@
-import { StyleSheet, ScrollView, TouchableOpacity, View, Dimensions } from "react-native"
+import { StyleSheet, ScrollView, TouchableOpacity, View, Dimensions, StatusBar } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
-
 import { ThemedText } from "@/components/ThemedText"
-import { ThemedView } from "@/components/ThemedView"
-import { IconSymbol } from "@/components/ui/IconSymbol"
+import { MaterialIcons, Ionicons } from "@expo/vector-icons"
+import { useRouter } from "expo-router"
+import { useState } from "react"
 
 const { width } = Dimensions.get("window")
 
 export default function DashboardScreen() {
+  const router = useRouter()
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  
   // Mock data for attendance overview
   const attendanceData = {
     present: 85,
@@ -32,167 +35,182 @@ export default function DashboardScreen() {
     return ["#F44336", "#E57373"]
   }
 
+  // Function to toggle drawer from parent component
+  const toggleDrawer = () => {
+    // This will be handled by the drawer context in _layout.tsx
+    global.toggleDrawer && global.toggleDrawer()
+  }
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <LinearGradient colors={["#4776E6", "#8E54E9"]} style={styles.header}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#8E54E9" />
+      <LinearGradient colors={["#8E54E9", "#4776E6"]} style={styles.header}>
         <View style={styles.headerContent}>
-          <ThemedText style={styles.greeting}>Hello, Admin</ThemedText>
-          <ThemedText style={styles.date}>
-            {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </ThemedText>
+          <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+            <MaterialIcons name="menu" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View>
+            <ThemedText style={styles.greeting}>Hello, Admin</ThemedText>
+            <ThemedText style={styles.date}>
+              {new Date().toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </ThemedText>
+          </View>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Ionicons name="notifications" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <View style={[styles.statIconContainer, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
-            <IconSymbol size={24} name="person.fill.checkmark" color="#8E54E9" />
-          </View>
-          <View style={styles.statInfo}>
-            <ThemedText style={styles.statLabel}>Present</ThemedText>
-            <ThemedText style={styles.statNumber}>{attendanceData.present}</ThemedText>
-            <View style={styles.statPercentage}>
-              <ThemedText style={styles.statPercentageText}>
-                {calculatePercentage(attendanceData.present, attendanceData.total)}%
-              </ThemedText>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
+              <Ionicons name="checkmark-circle" size={24} color="#8E54E9" />
             </View>
-          </View>
-        </View>
-
-        <View style={styles.statCard}>
-          <View style={[styles.statIconContainer, { backgroundColor: "rgba(244, 67, 54, 0.1)" }]}>
-            <IconSymbol size={24} name="person.fill.xmark" color="#F44336" />
-          </View>
-          <View style={styles.statInfo}>
-            <ThemedText style={styles.statLabel}>Absent</ThemedText>
-            <ThemedText style={styles.statNumber}>{attendanceData.absent}</ThemedText>
-            <View style={styles.statPercentage}>
-              <ThemedText style={styles.statPercentageText}>
-                {calculatePercentage(attendanceData.absent, attendanceData.total)}%
-              </ThemedText>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.statCard}>
-          <View style={[styles.statIconContainer, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
-            <IconSymbol size={24} name="person.fill.questionmark" color="#FFC107" />
-          </View>
-          <View style={styles.statInfo}>
-            <ThemedText style={styles.statLabel}>On Leave</ThemedText>
-            <ThemedText style={styles.statNumber}>{attendanceData.leave}</ThemedText>
-            <View style={styles.statPercentage}>
-              <ThemedText style={styles.statPercentageText}>
-                {calculatePercentage(attendanceData.leave, attendanceData.total)}%
-              </ThemedText>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
-        </View>
-
-        <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity style={styles.actionButton}>
-            <LinearGradient
-              colors={["#4776E6", "#8E54E9"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.actionButtonGradient}
-            >
-              <IconSymbol size={24} name="plus.circle.fill" color="#FFFFFF" />
-            </LinearGradient>
-            <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <LinearGradient
-              colors={["#FF9966", "#FF5E62"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.actionButtonGradient}
-            >
-              <IconSymbol size={24} name="doc.text.fill" color="#FFFFFF" />
-            </LinearGradient>
-            <ThemedText style={styles.actionButtonText}>Generate Report</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionButton}>
-            <LinearGradient
-              colors={["#56ab2f", "#a8e063"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.actionButtonGradient}
-            >
-              <IconSymbol size={24} name="person.3.fill" color="#FFFFFF" />
-            </LinearGradient>
-            <ThemedText style={styles.actionButtonText}>Manage Classes</ThemedText>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <ThemedText style={styles.sectionTitle}>Recent Attendance</ThemedText>
-          <TouchableOpacity style={styles.viewAllButton}>
-            <ThemedText style={styles.viewAllText}>View All</ThemedText>
-            <IconSymbol size={16} name="chevron.right" color="#8E54E9" />
-          </TouchableOpacity>
-        </View>
-
-        {attendanceData.recentClasses.map((classItem) => {
-          const percentage = calculatePercentage(classItem.present, classItem.total)
-          const colors = getAttendanceColor(percentage)
-          
-          return (
-            <View key={classItem.id} style={styles.classCard}>
-              <View style={styles.classInfo}>
-                <ThemedText style={styles.className}>{classItem.name}</ThemedText>
-                <View style={styles.classDetails}>
-                  <View style={styles.classDetailItem}>
-                    <IconSymbol size={14} name="calendar" color="#666" />
-                    <ThemedText style={styles.classDetailText}>{classItem.date}</ThemedText>
-                  </View>
-                  <View style={styles.classDetailItem}>
-                    <IconSymbol size={14} name="person.2.fill" color="#666" />
-                    <ThemedText style={styles.classDetailText}>
-                      {classItem.present}/{classItem.total} Students
-                    </ThemedText>
-                  </View>
-                </View>
-              </View>
-              
-              <View style={styles.attendanceInfo}>
-                <View style={styles.attendanceBar}>
-                  <LinearGradient
-                    colors={colors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.attendanceBarFill, { width: `${percentage}%` }]}
-                  />
-                </View>
-                <ThemedText style={[styles.attendancePercentage, { color: colors[0] }]}>
-                  {percentage}%
+            <View style={styles.statInfo}>
+              <ThemedText style={styles.statLabel}>Present</ThemedText>
+              <ThemedText style={styles.statNumber}>{attendanceData.present}</ThemedText>
+              <View style={styles.statPercentage}>
+                <ThemedText style={styles.statPercentageText}>
+                  {calculatePercentage(attendanceData.present, attendanceData.total)}%
                 </ThemedText>
               </View>
-              
-              <TouchableOpacity style={styles.viewButton}>
-                <ThemedText style={styles.viewButtonText}>View</ThemedText>
-                <IconSymbol size={14} name="chevron.right" color="#8E54E9" />
-              </TouchableOpacity>
             </View>
-          )
-        })}
-      </View>
-    </ScrollView>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: "rgba(244, 67, 54, 0.1)" }]}>
+              <Ionicons name="close-circle" size={24} color="#F44336" />
+            </View>
+            <View style={styles.statInfo}>
+              <ThemedText style={styles.statLabel}>Absent</ThemedText>
+              <ThemedText style={styles.statNumber}>{attendanceData.absent}</ThemedText>
+              <View style={styles.statPercentage}>
+                <ThemedText style={styles.statPercentageText}>
+                  {calculatePercentage(attendanceData.absent, attendanceData.total)}%
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconContainer, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
+              <Ionicons name="help-circle" size={24} color="#FFC107" />
+            </View>
+            <View style={styles.statInfo}>
+              <ThemedText style={styles.statLabel}>On Leave</ThemedText>
+              <ThemedText style={styles.statNumber}>{attendanceData.leave}</ThemedText>
+              <View style={styles.statPercentage}>
+                <ThemedText style={styles.statPercentageText}>
+                  {calculatePercentage(attendanceData.leave, attendanceData.total)}%
+                </ThemedText>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
+          </View>
+
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity style={styles.actionButton}>
+              <LinearGradient
+                colors={["#4776E6", "#8E54E9"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionButtonGradient}
+              >
+                <Ionicons name="add-circle" size={24} color="#FFFFFF" />
+              </LinearGradient>
+              <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionButton}>
+              <LinearGradient
+                colors={["#FF9966", "#FF5E62"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionButtonGradient}
+              >
+                <Ionicons name="document-text" size={24} color="#FFFFFF" />
+              </LinearGradient>
+              <ThemedText style={styles.actionButtonText}>Generate Report</ThemedText>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionButton}>
+              <LinearGradient
+                colors={["#56ab2f", "#a8e063"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionButtonGradient}
+              >
+                <Ionicons name="people" size={24} color="#FFFFFF" />
+              </LinearGradient>
+              <ThemedText style={styles.actionButtonText}>Manage Classes</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <ThemedText style={styles.sectionTitle}>Recent Attendance</ThemedText>
+            <TouchableOpacity style={styles.viewAllButton}>
+              <ThemedText style={styles.viewAllText}>View All</ThemedText>
+              <Ionicons name="chevron-forward" size={16} color="#8E54E9" />
+            </TouchableOpacity>
+          </View>
+
+          {attendanceData.recentClasses.map((classItem) => {
+            const percentage = calculatePercentage(classItem.present, classItem.total)
+            const colors = getAttendanceColor(percentage)
+
+            return (
+              <View key={classItem.id} style={styles.classCard}>
+                <View style={styles.classInfo}>
+                  <ThemedText style={styles.className}>{classItem.name}</ThemedText>
+                  <View style={styles.classDetails}>
+                    <View style={styles.classDetailItem}>
+                      <Ionicons name="calendar" size={14} color="#666" />
+                      <ThemedText style={styles.classDetailText}>{classItem.date}</ThemedText>
+                    </View>
+                    <View style={styles.classDetailItem}>
+                      <Ionicons name="people" size={14} color="#666" />
+                      <ThemedText style={styles.classDetailText}>
+                        {classItem.present}/{classItem.total} Students
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.attendanceInfo}>
+                  <View style={styles.attendanceBar}>
+                    <LinearGradient
+                      colors={colors}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.attendanceBarFill, { width: `${percentage}%` }]}
+                    />
+                  </View>
+                  <ThemedText style={[styles.attendancePercentage, { color: colors[0] }]}>{percentage}%</ThemedText>
+                </View>
+
+                <TouchableOpacity style={styles.viewButton}>
+                  <ThemedText style={styles.viewButtonText}>View</ThemedText>
+                  <Ionicons name="chevron-forward" size={14} color="#8E54E9" />
+                </TouchableOpacity>
+              </View>
+            )
+          })}
+        </View>
+      </ScrollView>
+    </View>
   )
 }
 
@@ -202,30 +220,50 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    marginBottom: 20,
-  },
-  headerContent: {
+    paddingTop: 40,
+    paddingBottom: 20,
     paddingHorizontal: 20,
   },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   greeting: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#FFFFFF",
-    marginBottom: 5,
+    textAlign: "center",
   },
   date: {
-    fontSize: 14,
+    fontSize: 12,
     color: "rgba(255, 255, 255, 0.8)",
+    textAlign: "center",
+  },
+  content: {
+    flex: 1,
   },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    marginTop: -30,
+    marginTop: 20,
   },
   statCard: {
     backgroundColor: "#FFFFFF",
@@ -381,4 +419,3 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
 })
-

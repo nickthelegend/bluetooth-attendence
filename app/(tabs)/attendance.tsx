@@ -95,13 +95,27 @@ export default function AttendanceScreen() {
     return { present, absent, presentPercentage }
   }
 
+  // Function to toggle drawer from parent component
+  const toggleDrawer = () => {
+    // This will be handled by the drawer context in _layout.tsx
+    global.toggleDrawer && global.toggleDrawer()
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#8E54E9" />
       <LinearGradient colors={["#8E54E9", "#4776E6"]} style={styles.header}>
         <View style={styles.headerContent}>
-          <ThemedText style={styles.headerTitle}>Take Attendance</ThemedText>
-          <ThemedText style={styles.headerSubtitle}>Mark student attendance</ThemedText>
+          <TouchableOpacity onPress={toggleDrawer} style={styles.menuButton}>
+            <MaterialIcons name="menu" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View>
+            <ThemedText style={styles.headerTitle}>Take Attendance</ThemedText>
+            <ThemedText style={styles.headerSubtitle}>Mark student attendance</ThemedText>
+          </View>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Ionicons name="notifications" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
@@ -257,22 +271,41 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8F9FA",
   },
   header: {
-    paddingTop: 60,
+    paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 20,
   },
   headerContent: {
-    paddingHorizontal: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#FFFFFF",
+    textAlign: "center",
   },
   headerSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: "rgba(255, 255, 255, 0.8)",
-    marginTop: 5,
+    textAlign: "center",
   },
   content: {
     flex: 1,
