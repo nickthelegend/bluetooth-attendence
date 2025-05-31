@@ -61,6 +61,12 @@ export default function ManageClassScreen() {
   const [isAddingStudentsVisible, setIsAddingStudentsVisible] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [refreshing, setRefreshing] = useState(false)
+  const [debugLog, setDebugLog] = useState<string[]>([]) // For easier debugging on device
+
+  const appendLog = (message: string) => {
+    console.log(message)
+    // setDebugLog(prev => [message, ...prev.slice(0, 10)]); // Optional: show logs in UI
+  }
 
   const fetchClassAndEnrolledStudents = useCallback(
     async (isRefresh = false) => {
@@ -114,6 +120,7 @@ export default function ManageClassScreen() {
             roll_number: cs.student.roll_number,
           })) || []
         setEnrolledStudents(currentEnrolled)
+        // appendLog(`Fetched ${currentEnrolled.length} enrolled students.`);
       } catch (error: any) {
         console.error("Error fetching class/student data:", error.message)
         Alert.alert("Error", error.message)
@@ -134,41 +141,55 @@ export default function ManageClassScreen() {
   // Fetch all students (for adding) - only when the add section is visible
   useEffect(() => {
     if (!isAddingStudentsVisible || !classId) {
+      appendLog("Add students section not visible or no classId, clearing available students.")
       setAvailableToAddStudents([])
       return
     }
 
     const fetchAllStudentsForAdding = async () => {
+      appendLog("Attempting to fetch students for adding...")
       setIsStudentSectionLoading(true)
       try {
-        // Fetch all students
+        // Fetch all students (potential candidates)
         const { data: allStudentsData, error: allStudentsError } = await supabase
           .from("students")
           .select("id, name, email, roll_number")
-          .limit(100)
+          .limit(100) // Consider pagination for larger datasets
 
         if (allStudentsError) {
-          throw new Error(allStudentsError.message || "Could not load all students.")
+          throw new Error(allStudentsError.message || "Could not load all students for adding.")
         }
 
-        if (allStudentsData) {
-          // Filter out students already enrolled in the current class
-          const notEnrolled = allStudentsData.filter((s) => !enrolledStudents.find((es) => es.id === s.id))
+        appendLog(`Fetched ${allStudentsData?.length || 0} total potential students from 'students' table.`)
+
+        if (allStudentsData && allStudentsData.length > 0) {
+          // Ensure enrolledStudents state is current before filtering
+          // This relies on enrolledStudents being correctly populated from the other effect
+          appendLog(`Current enrolledStudents count for filtering: ${enrolledStudents.length}`)
+
+          const notEnrolled = allStudentsData.filter((potentialStudent) => {
+            const isEnrolled = enrolledStudents.some((enrolled) => enrolled.id === potentialStudent.id)
+            return !isEnrolled
+          })
+
+          appendLog(`Found ${notEnrolled.length} students not currently enrolled in this class.`)
           setAvailableToAddStudents(notEnrolled as StudentData[])
         } else {
+          appendLog("No students found in the 'students' table or an error occurred.")
           setAvailableToAddStudents([])
         }
       } catch (error: any) {
-        console.error("Error fetching students for adding:", error.message)
+        appendLog(`Error fetching students for adding: ${error.message}`)
         Alert.alert("Error", error.message)
         setAvailableToAddStudents([])
       } finally {
         setIsStudentSectionLoading(false)
+        appendLog("Finished fetching students for adding.")
       }
     }
 
     fetchAllStudentsForAdding()
-  }, [isAddingStudentsVisible, classId, enrolledStudents])
+  }, [isAddingStudentsVisible, classId, enrolledStudents]) // Keep enrolledStudents in dependency array
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
@@ -338,6 +359,11 @@ export default function ManageClassScreen() {
                   onChangeText={setSearchTerm}
                   placeholderTextColor="#999"
                 />
+                {/* <ThemedText>Debug: isAddingStudentsVisible: {isAddingStudentsVisible.toString()}</ThemedText>
+                <ThemedText>Debug: availableToAddStudents count: {availableToAddStudents.length}</ThemedText>
+                <ThemedText>Debug: searchTerm: "{searchTerm}"</ThemedText>
+                <ThemedText>Debug: filteredAvailableStudents count: {filteredAvailableStudents.length}</ThemedText> */}
+                {/* {debugLog.map((log, i) => <ThemedText key={i} style={{fontSize: 10}}>{log}</ThemedText>)} */}
                 {isStudentSectionLoading && !refreshing ? (
                   <ActivityIndicator size="small" color="#8E54E9" style={{ marginVertical: 10 }} />
                 ) : filteredAvailableStudents.length === 0 && searchTerm ? (
