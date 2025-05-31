@@ -1,44 +1,251 @@
-import { StyleSheet, ScrollView, TouchableOpacity, View, Dimensions, StatusBar } from "react-native"
+"use client"
+
+import { StyleSheet, ScrollView, TouchableOpacity, View, Dimensions, StatusBar, ActivityIndicator } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { ThemedText } from "@/components/ThemedText"
 import { MaterialIcons, Ionicons } from "@expo/vector-icons"
 import { useRouter } from "expo-router"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { createClient, type User } from "@supabase/supabase-js"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const { width } = Dimensions.get("window")
 
+// Supabase client
+const supabaseUrl = "https://oquvqaiisiilhbvoopoi.supabase.co"
+const supabaseKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdXZxYWlpc2lpbGhidm9vcG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NjcwNDksImV4cCI6MjA2MDE0MzA0OX0.XZT2SaLizGo8LWuFv3zRjHwuF-dzsSzCrKFNKuYe8Xs"
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+})
+
+interface AttendanceStats {
+  present: number
+  absent: number
+  leave: number
+  total: number
+}
+
+interface RecentClass {
+  id: string
+  name: string
+  date: string
+  present: number
+  total: number
+  subject: string
+}
+
 export default function DashboardScreen() {
   const router = useRouter()
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  
-  // Mock data for attendance overview
-  const attendanceData = {
-    present: 85,
-    absent: 12,
-    leave: 3,
-    total: 100,
-    recentClasses: [
-      { id: 1, name: "Class 10-A", date: "2023-04-14", present: 28, total: 30 },
-      { id: 2, name: "Class 9-B", date: "2023-04-14", present: 25, total: 28 },
-      { id: 3, name: "Class 11-C", date: "2023-04-13", present: 32, total: 35 },
-      { id: 4, name: "Class 12-D", date: "2023-04-13", present: 22, total: 25 },
-    ],
-  }
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [staffName, setStaffName] = useState<string>("Staff Member")
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats>({
+    present: 0,
+    absent: 0,
+    leave: 0,
+    total: 0,
+  })
+  const [recentClasses, setRecentClasses] = useState<RecentClass[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isStatsLoading, setIsStatsLoading] = useState(true)
 
-  const calculatePercentage = (present, total) => {
+  // Fetch user and staff info
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        setCurrentUser(user)
+        // Fetch staff name
+        const { data: staffData } = await supabase.from("staff").select("name").eq("user_id", user.id).single()
+        if (staffData) {
+          setStaffName(staffData.name)
+        }
+      }
+    }
+    fetchUserInfo()
+  }, [])
+
+  // Fetch attendance statistics
+  useEffect(() => {
+    const fetchAttendanceStats = async () => {
+      if (!currentUser) return
+
+      setIsStatsLoading(true)
+      try {
+        // Get staff ID first
+        const { data: staffData } = await supabase.from("staff").select("id").eq("user_id", currentUser.id).single()
+        if (!staffData) return
+
+        // Get classes taught by this staff member
+        const { data: classStaffData } = await supabase
+          .from("class_staff")
+          .select("class_id")
+          .eq("staff_id", staffData.id)
+
+        if (!classStaffData || classStaffData.length === 0) {
+          setIsStatsLoading(false)
+          return
+        }
+
+        const classIds = classStaffData.map((cs) => cs.class_id)
+
+        // Get today's date
+        const today = new Date().toISOString().split("T")[0]
+
+        // Fetch attendance records for today for all classes taught by this staff
+        const { data: attendanceData } = await supabase
+          .from("attendance")
+          .select("status")
+          .in("class_id", classIds)
+          .eq("date", today)
+
+        if (attendanceData) {
+          const present = attendanceData.filter((a) => a.status === "Present").length
+          const absent = attendanceData.filter((a) => a.status === "Absent").length
+          const leave = attendanceData.filter((a) => a.status === "Leave").length
+          const total = attendanceData.length
+
+          setAttendanceStats({ present, absent, leave, total })
+        }
+      } catch (error) {
+        console.error("Error fetching attendance stats:", error)
+      } finally {
+        setIsStatsLoading(false)
+      }
+    }
+
+    fetchAttendanceStats()
+  }, [currentUser])
+
+  // Fetch recent classes with attendance data
+  useEffect(() => {
+    const fetchRecentClasses = async () => {
+      if (!currentUser) return
+
+      setIsLoading(true)
+      try {
+        // Get staff ID
+        const { data: staffData } = await supabase.from("staff").select("id").eq("user_id", currentUser.id).single()
+        if (!staffData) return
+
+        // Get classes taught by this staff member with program info
+        const { data: classStaffData } = await supabase
+          .from("class_staff")
+          .select(
+            `
+            class_id,
+            subject,
+            classes!inner(
+              id,
+              year,
+              section,
+              programs!inner(name)
+            )
+          `,
+          )
+          .eq("staff_id", staffData.id)
+          .limit(4) // Limit to recent 4 classes
+
+        if (!classStaffData) return
+
+        // Get recent attendance data for these classes
+        const recentClassesData = await Promise.all(
+          classStaffData.map(async (classStaff: any) => {
+            const classInfo = classStaff.classes
+            const programName = classInfo.programs?.name || "Unknown"
+            const className = `${programName} ${classInfo.year}-${classInfo.section}`
+
+            // Get recent attendance for this class (last 7 days)
+            const sevenDaysAgo = new Date()
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+            const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0]
+
+            const { data: attendanceData } = await supabase
+              .from("attendance")
+              .select("status, date")
+              .eq("class_id", classInfo.id)
+              .eq("subject", classStaff.subject)
+              .gte("date", sevenDaysAgoStr)
+              .order("date", { ascending: false })
+              .limit(1) // Get most recent attendance session
+
+            // Get total students in class
+            const { count: totalStudents } = await supabase
+              .from("class_students")
+              .select("*", { count: "exact", head: true })
+              .eq("class_id", classInfo.id)
+
+            let present = 0
+            let total = totalStudents || 0
+            let date = new Date().toISOString().split("T")[0]
+
+            if (attendanceData && attendanceData.length > 0) {
+              // Get attendance for the most recent date
+              const recentDate = attendanceData[0].date
+              const { data: recentAttendance } = await supabase
+                .from("attendance")
+                .select("status")
+                .eq("class_id", classInfo.id)
+                .eq("subject", classStaff.subject)
+                .eq("date", recentDate)
+
+              if (recentAttendance) {
+                present = recentAttendance.filter((a) => a.status === "Present").length
+                total = recentAttendance.length
+                date = recentDate
+              }
+            }
+
+            return {
+              id: classInfo.id,
+              name: className,
+              date: date,
+              present: present,
+              total: total,
+              subject: classStaff.subject,
+            }
+          }),
+        )
+
+        setRecentClasses(recentClassesData)
+      } catch (error) {
+        console.error("Error fetching recent classes:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchRecentClasses()
+  }, [currentUser])
+
+  const calculatePercentage = (present: number, total: number) => {
+    if (total === 0) return 0
     return Math.round((present / total) * 100)
   }
 
-  const getAttendanceColor = (percentage) => {
+  const getAttendanceColor = (percentage: number) => {
     if (percentage >= 90) return ["#4CAF50", "#81C784"]
     if (percentage >= 75) return ["#FFC107", "#FFD54F"]
     return ["#F44336", "#E57373"]
   }
 
-  // Function to toggle drawer from parent component
   const toggleDrawer = () => {
-    // This will be handled by the drawer context in _layout.tsx
     global.toggleDrawer && global.toggleDrawer()
+  }
+
+  const handleTakeAttendance = () => {
+    router.push("/(tabs)/attendance")
+  }
+
+  const handleManageClasses = () => {
+    router.push("/(tabs)/classes")
   }
 
   return (
@@ -50,7 +257,7 @@ export default function DashboardScreen() {
             <MaterialIcons name="menu" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View>
-            <ThemedText style={styles.greeting}>Hello, Admin</ThemedText>
+            <ThemedText style={styles.greeting}>Hello, {staffName}</ThemedText>
             <ThemedText style={styles.date}>
               {new Date().toLocaleDateString("en-US", {
                 weekday: "long",
@@ -67,6 +274,7 @@ export default function DashboardScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Attendance Statistics */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <View style={[styles.statIconContainer, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
@@ -74,12 +282,18 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.statInfo}>
               <ThemedText style={styles.statLabel}>Present</ThemedText>
-              <ThemedText style={styles.statNumber}>{attendanceData.present}</ThemedText>
-              <View style={styles.statPercentage}>
-                <ThemedText style={styles.statPercentageText}>
-                  {calculatePercentage(attendanceData.present, attendanceData.total)}%
-                </ThemedText>
-              </View>
+              {isStatsLoading ? (
+                <ActivityIndicator size="small" color="#8E54E9" />
+              ) : (
+                <>
+                  <ThemedText style={styles.statNumber}>{attendanceStats.present}</ThemedText>
+                  <View style={styles.statPercentage}>
+                    <ThemedText style={styles.statPercentageText}>
+                      {calculatePercentage(attendanceStats.present, attendanceStats.total)}%
+                    </ThemedText>
+                  </View>
+                </>
+              )}
             </View>
           </View>
 
@@ -89,12 +303,18 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.statInfo}>
               <ThemedText style={styles.statLabel}>Absent</ThemedText>
-              <ThemedText style={styles.statNumber}>{attendanceData.absent}</ThemedText>
-              <View style={styles.statPercentage}>
-                <ThemedText style={styles.statPercentageText}>
-                  {calculatePercentage(attendanceData.absent, attendanceData.total)}%
-                </ThemedText>
-              </View>
+              {isStatsLoading ? (
+                <ActivityIndicator size="small" color="#F44336" />
+              ) : (
+                <>
+                  <ThemedText style={styles.statNumber}>{attendanceStats.absent}</ThemedText>
+                  <View style={styles.statPercentage}>
+                    <ThemedText style={styles.statPercentageText}>
+                      {calculatePercentage(attendanceStats.absent, attendanceStats.total)}%
+                    </ThemedText>
+                  </View>
+                </>
+              )}
             </View>
           </View>
 
@@ -104,23 +324,30 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.statInfo}>
               <ThemedText style={styles.statLabel}>On Leave</ThemedText>
-              <ThemedText style={styles.statNumber}>{attendanceData.leave}</ThemedText>
-              <View style={styles.statPercentage}>
-                <ThemedText style={styles.statPercentageText}>
-                  {calculatePercentage(attendanceData.leave, attendanceData.total)}%
-                </ThemedText>
-              </View>
+              {isStatsLoading ? (
+                <ActivityIndicator size="small" color="#FFC107" />
+              ) : (
+                <>
+                  <ThemedText style={styles.statNumber}>{attendanceStats.leave}</ThemedText>
+                  <View style={styles.statPercentage}>
+                    <ThemedText style={styles.statPercentageText}>
+                      {calculatePercentage(attendanceStats.leave, attendanceStats.total)}%
+                    </ThemedText>
+                  </View>
+                </>
+              )}
             </View>
           </View>
         </View>
 
+        {/* Quick Actions */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>Quick Actions</ThemedText>
           </View>
 
           <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleTakeAttendance}>
               <LinearGradient
                 colors={["#4776E6", "#8E54E9"]}
                 start={{ x: 0, y: 0 }}
@@ -144,7 +371,7 @@ export default function DashboardScreen() {
               <ThemedText style={styles.actionButtonText}>Generate Report</ThemedText>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleManageClasses}>
               <LinearGradient
                 colors={["#56ab2f", "#a8e063"]}
                 start={{ x: 0, y: 0 }}
@@ -158,6 +385,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* Recent Attendance */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <ThemedText style={styles.sectionTitle}>Recent Attendance</ThemedText>
@@ -167,47 +395,61 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {attendanceData.recentClasses.map((classItem) => {
-            const percentage = calculatePercentage(classItem.present, classItem.total)
-            const colors = getAttendanceColor(percentage)
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#8E54E9" style={{ marginTop: 20 }} />
+          ) : recentClasses.length > 0 ? (
+            recentClasses.map((classItem) => {
+              const percentage = calculatePercentage(classItem.present, classItem.total)
+              const colors = getAttendanceColor(percentage)
 
-            return (
-              <View key={classItem.id} style={styles.classCard}>
-                <View style={styles.classInfo}>
-                  <ThemedText style={styles.className}>{classItem.name}</ThemedText>
-                  <View style={styles.classDetails}>
-                    <View style={styles.classDetailItem}>
-                      <Ionicons name="calendar" size={14} color="#666" />
-                      <ThemedText style={styles.classDetailText}>{classItem.date}</ThemedText>
-                    </View>
-                    <View style={styles.classDetailItem}>
-                      <Ionicons name="people" size={14} color="#666" />
-                      <ThemedText style={styles.classDetailText}>
-                        {classItem.present}/{classItem.total} Students
-                      </ThemedText>
+              return (
+                <View key={classItem.id} style={styles.classCard}>
+                  <View style={styles.classInfo}>
+                    <ThemedText style={styles.className}>{classItem.name}</ThemedText>
+                    <View style={styles.classDetails}>
+                      <View style={styles.classDetailItem}>
+                        <Ionicons name="calendar" size={14} color="#666" />
+                        <ThemedText style={styles.classDetailText}>{classItem.date}</ThemedText>
+                      </View>
+                      <View style={styles.classDetailItem}>
+                        <Ionicons name="people" size={14} color="#666" />
+                        <ThemedText style={styles.classDetailText}>
+                          {classItem.present}/{classItem.total} Students
+                        </ThemedText>
+                      </View>
+                      <View style={styles.classDetailItem}>
+                        <Ionicons name="book" size={14} color="#666" />
+                        <ThemedText style={styles.classDetailText}>{classItem.subject}</ThemedText>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <View style={styles.attendanceInfo}>
-                  <View style={styles.attendanceBar}>
-                    <LinearGradient
-                      colors={colors}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={[styles.attendanceBarFill, { width: `${percentage}%` }]}
-                    />
+                  <View style={styles.attendanceInfo}>
+                    <View style={styles.attendanceBar}>
+                      <LinearGradient
+                        colors={colors}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.attendanceBarFill, { width: `${percentage}%` }]}
+                      />
+                    </View>
+                    <ThemedText style={[styles.attendancePercentage, { color: colors[0] }]}>{percentage}%</ThemedText>
                   </View>
-                  <ThemedText style={[styles.attendancePercentage, { color: colors[0] }]}>{percentage}%</ThemedText>
-                </View>
 
-                <TouchableOpacity style={styles.viewButton}>
-                  <ThemedText style={styles.viewButtonText}>View</ThemedText>
-                  <Ionicons name="chevron-forward" size={14} color="#8E54E9" />
-                </TouchableOpacity>
-              </View>
-            )
-          })}
+                  <TouchableOpacity style={styles.viewButton}>
+                    <ThemedText style={styles.viewButtonText}>View</ThemedText>
+                    <Ionicons name="chevron-forward" size={14} color="#8E54E9" />
+                  </TouchableOpacity>
+                </View>
+              )
+            })
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons name="school" size={48} color="#ccc" />
+              <ThemedText style={styles.emptyStateText}>No recent attendance data</ThemedText>
+              <ThemedText style={styles.emptyStateSubtext}>Start taking attendance to see data here</ThemedText>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -275,6 +517,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+    minHeight: 120,
   },
   statIconContainer: {
     width: 40,
@@ -372,11 +615,13 @@ const styles = StyleSheet.create({
   classDetails: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
   },
   classDetailItem: {
     flexDirection: "row",
     alignItems: "center",
     marginRight: 15,
+    marginBottom: 5,
   },
   classDetailText: {
     fontSize: 12,
@@ -417,5 +662,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginRight: 5,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 16,
+    fontWeight: "500",
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: "#999",
+    marginTop: 8,
+    textAlign: "center",
   },
 })
