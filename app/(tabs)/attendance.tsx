@@ -1,79 +1,238 @@
 "use client"
 
-import { useState } from "react"
-import { StyleSheet, ScrollView, TouchableOpacity, TextInput, View, Dimensions, StatusBar } from "react-native"
+import { useState, useEffect } from "react"
+import {
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  View,
+  Dimensions,
+  StatusBar,
+  ActivityIndicator,
+} from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { ThemedText } from "@/components/ThemedText"
 import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons"
+import { createClient, type User } from "@supabase/supabase-js"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const { width } = Dimensions.get("window")
 
+// Supabase client
+const supabaseUrl = "https://oquvqaiisiilhbvoopoi.supabase.co"
+const supabaseKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdXZxYWlpc2lpbGhidm9vcG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NjcwNDksImV4cCI6MjA2MDE0MzA0OX0.XZT2SaLizGo8LWuFv3zRjHwuF-dzsSzCrKFNKuYe8Xs"
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+})
+
+interface Student {
+  id: string // Actual student UUID from DB
+  name: string
+  rollNo: string
+  present: boolean
+  avatar: string
+}
+
+interface ClassItem {
+  id: string
+  name: string
+  students: number
+  subject: string
+  teacher: string
+  time: string
+  room: string
+  color: string[]
+}
+
 export default function AttendanceScreen() {
-  const [selectedClass, setSelectedClass] = useState(null)
-  const [date, setDate] = useState("2025-04-14")
+  const [selectedClass, setSelectedClass] = useState<ClassItem | null>(null)
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]) // Default to today
   const [showCalendar, setShowCalendar] = useState(false)
 
-  // Mock data for classes
-  const classes = [
-    {
-      id: 1,
-      name: "Class 10-A",
-      students: 30,
-      subject: "Mathematics",
-      teacher: "Mr. Johnson",
-      time: "9:00 AM - 10:30 AM",
-      room: "Room 101",
-      color: ["#4776E6", "#8E54E9"],
-    },
-    {
-      id: 2,
-      name: "Class 9-B",
-      students: 28,
-      subject: "Science",
-      teacher: "Mrs. Smith",
-      time: "11:00 AM - 12:30 PM",
-      room: "Room 203",
-      color: ["#FF9966", "#FF5E62"],
-    },
-    {
-      id: 3,
-      name: "Class 11-C",
-      students: 35,
-      subject: "English",
-      teacher: "Mr. Davis",
-      time: "1:00 PM - 2:30 PM",
-      room: "Room 305",
-      color: ["#56ab2f", "#a8e063"],
-    },
-    {
-      id: 4,
-      name: "Class 12-D",
-      students: 25,
-      subject: "History",
-      teacher: "Ms. Wilson",
-      time: "3:00 PM - 4:30 PM",
-      room: "Room 402",
-      color: ["#36D1DC", "#5B86E5"],
-    },
-  ]
+  const [studentList, setStudentList] = useState<Student[]>([])
+  const [fetchedClasses, setFetchedClasses] = useState<ClassItem[]>([])
+  const [loggedInUserClassCount, setLoggedInUserClassCount] = useState<number | null>(null)
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true)
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false)
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
 
-  // Mock data for students
-  const allStudents = [
-    { id: 1, name: "John Doe", rollNo: "101", present: true, avatar: "J" },
-    { id: 2, name: "Jane Smith", rollNo: "102", present: true, avatar: "J" },
-    { id: 3, name: "Michael Johnson", rollNo: "103", present: false, avatar: "M" },
-    { id: 4, name: "Emily Brown", rollNo: "104", present: true, avatar: "E" },
-    { id: 5, name: "David Wilson", rollNo: "105", present: true, avatar: "D" },
-    { id: 6, name: "Sarah Taylor", rollNo: "106", present: false, avatar: "S" },
-    { id: 7, name: "James Anderson", rollNo: "107", present: true, avatar: "J" },
-    { id: 8, name: "Olivia Martinez", rollNo: "108", present: true, avatar: "O" },
-    { id: 9, name: "Robert Garcia", rollNo: "109", present: false, avatar: "R" },
-    { id: 10, name: "Sophia Rodriguez", rollNo: "110", present: true, avatar: "S" },
-  ]
+  // Fetch assigned classes for the logged-in staff member
+  useEffect(() => {
+    const fetchStaffClasses = async () => {
+      setIsLoadingClasses(true)
+      setLoggedInUserClassCount(null)
+      setFetchedClasses([])
 
-  const [studentList, setStudentList] = useState(allStudents)
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
 
-  const toggleAttendance = (id) => {
+      if (userError || !user) {
+        console.error("Error fetching user or no user logged in:", userError?.message)
+        setIsLoadingClasses(false)
+        setLoggedInUserClassCount(0)
+        return
+      }
+      setCurrentUser(user)
+
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("id, name")
+        .eq("user_id", user.id)
+        .maybeSingle() // Use maybeSingle() to handle no staff record
+
+      if (staffError) {
+        console.error("Error fetching staff details:", staffError.message)
+        setIsLoadingClasses(false)
+        setLoggedInUserClassCount(0)
+        return
+      }
+
+      if (!staffData) {
+        console.log("No staff record found for user:", user.id)
+        setIsLoadingClasses(false)
+        setLoggedInUserClassCount(0)
+        return
+      }
+
+      const staffId = staffData.id
+      const staffName = staffData.name
+
+      const { data: assignedClasses, error: assignedClassesError } = await supabase
+        .from("class_staff")
+        .select(
+          `
+          subject,
+          classes!inner (
+            id,
+            year,
+            section,
+            room_number,
+            programs!inner (name)
+          )
+        `,
+        )
+        .eq("staff_id", staffId)
+
+      if (assignedClassesError) {
+        console.error("Error fetching assigned classes:", assignedClassesError.message)
+        setIsLoadingClasses(false)
+        setLoggedInUserClassCount(0)
+        return
+      }
+
+      if (assignedClasses) {
+        setLoggedInUserClassCount(assignedClasses.length)
+
+        const transformedClassesPromises = assignedClasses.map(async (item: any) => {
+          const classDetails = item.classes
+          if (!classDetails) return null
+          const program = classDetails.programs
+          if (!program) return null
+
+          const { count: studentCount, error: studentCountError } = await supabase
+            .from("class_students")
+            .select("*", { count: "exact", head: true })
+            .eq("class_id", classDetails.id)
+
+          return {
+            id: classDetails.id,
+            name: `${program.name} ${classDetails.year}-${classDetails.section}`,
+            students: studentCountError ? 0 : studentCount || 0,
+            subject: item.subject,
+            teacher: staffName,
+            time: "N/A", // Placeholder
+            room: classDetails.room_number || "N/A",
+            color: ["#4776E6", "#8E54E9"], // Default color
+          }
+        })
+
+        const resolvedTransformedClasses = (await Promise.all(transformedClassesPromises)).filter(
+          Boolean,
+        ) as ClassItem[]
+        setFetchedClasses(resolvedTransformedClasses)
+      } else {
+        setLoggedInUserClassCount(0)
+        setFetchedClasses([])
+      }
+      setIsLoadingClasses(false)
+    }
+
+    fetchStaffClasses()
+  }, [])
+
+  // Fetch students for the selected class
+  useEffect(() => {
+    const fetchStudentsForClass = async () => {
+      if (!selectedClass) {
+        setStudentList([])
+        return
+      }
+
+      setIsLoadingStudents(true)
+      setStudentList([])
+
+      try {
+        // Fetch student_ids from class_students
+        const { data: classStudentsData, error: classStudentsError } = await supabase
+          .from("class_students")
+          .select("student_id")
+          .eq("class_id", selectedClass.id)
+
+        if (classStudentsError) {
+          console.error("Error fetching student IDs for class:", classStudentsError.message)
+          setIsLoadingStudents(false)
+          return
+        }
+
+        if (!classStudentsData || classStudentsData.length === 0) {
+          setIsLoadingStudents(false)
+          return
+        }
+
+        const studentIds = classStudentsData.map((cs) => cs.student_id)
+
+        // Fetch student details from students table
+        const { data: studentsData, error: studentsError } = await supabase
+          .from("students")
+          .select("id, name, roll_number")
+          .in("id", studentIds)
+
+        if (studentsError) {
+          console.error("Error fetching student details:", studentsError.message)
+          setIsLoadingStudents(false)
+          return
+        }
+
+        if (studentsData) {
+          const formattedStudents: Student[] = studentsData.map((student) => ({
+            id: student.id,
+            name: student.name,
+            rollNo: student.roll_number,
+            present: true, // Default to present, can be enhanced to check existing attendance
+            avatar: student.name.charAt(0).toUpperCase(),
+          }))
+          setStudentList(formattedStudents)
+        }
+      } catch (error: any) {
+        console.error("Unexpected error fetching students:", error.message)
+      } finally {
+        setIsLoadingStudents(false)
+      }
+    }
+
+    fetchStudentsForClass()
+  }, [selectedClass])
+
+  const toggleAttendance = (id: string) => {
     setStudentList(
       studentList.map((student) => (student.id === id ? { ...student, present: !student.present } : student)),
     )
@@ -88,17 +247,49 @@ export default function AttendanceScreen() {
   }
 
   const getAttendanceStats = () => {
+    if (studentList.length === 0) {
+      return { present: 0, absent: 0, presentPercentage: 0 }
+    }
     const present = studentList.filter((s) => s.present).length
     const absent = studentList.length - present
     const presentPercentage = Math.round((present / studentList.length) * 100)
-
     return { present, absent, presentPercentage }
   }
 
-  // Function to toggle drawer from parent component
   const toggleDrawer = () => {
-    // This will be handled by the drawer context in _layout.tsx
     global.toggleDrawer && global.toggleDrawer()
+  }
+
+  const handleSubmitAttendance = async () => {
+    if (!selectedClass || !currentUser || studentList.length === 0) {
+      console.log("Missing data for submitting attendance")
+      // Optionally, show an alert to the user
+      return
+    }
+
+    const attendanceRecords = studentList.map((student) => ({
+      class_id: selectedClass.id,
+      student_id: student.id,
+      subject: selectedClass.subject, // Assuming subject is part of selectedClass
+      date: date,
+      status: student.present ? "Present" : "Absent",
+      // hours_attended: student.present ? 1 : 0, // Example, adjust as needed
+      // staff_id: currentUser.id, // If you have a staff_id column in attendance
+    }))
+
+    console.log("Submitting attendance:", attendanceRecords)
+    // Implement actual submission logic to Supabase 'attendance' table
+    // For example:
+    // const { error } = await supabase.from('attendance').upsert(attendanceRecords, {
+    //   onConflict: 'class_id,student_id,date' // Define your conflict resolution strategy
+    // });
+    // if (error) {
+    //   console.error('Error submitting attendance:', error.message);
+    //   // Show error to user
+    // } else {
+    //   console.log('Attendance submitted successfully');
+    //   // Show success message
+    // }
   }
 
   return (
@@ -126,42 +317,66 @@ export default function AttendanceScreen() {
             <TextInput
               style={styles.dateInput}
               value={date}
-              onChangeText={setDate}
+              onChangeText={setDate} // Consider using a proper date picker component
               placeholder="YYYY-MM-DD"
               placeholderTextColor="#999"
-              editable={false}
+              editable={false} // Make it non-editable if using a calendar popup
             />
             <MaterialIcons name="arrow-drop-down" size={24} color="#8E54E9" />
           </TouchableOpacity>
+          {/* Implement Calendar Popup Logic if showCalendar is true */}
         </View>
 
         {!selectedClass ? (
           <View style={styles.sectionContainer}>
-            <ThemedText style={styles.sectionTitle}>Select Class</ThemedText>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classCardsContainer}>
-              {classes.map((classItem) => (
-                <TouchableOpacity
-                  key={classItem.id}
-                  style={styles.classCard}
-                  onPress={() => setSelectedClass(classItem.id)}
-                  activeOpacity={0.8}
-                >
-                  <LinearGradient
-                    colors={classItem.color}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.classCardGradient}
-                  >
-                    <View style={styles.classCardIcon}>
-                      <Ionicons name="people" size={24} color="#FFFFFF" />
-                    </View>
-                    <ThemedText style={styles.classCardName}>{classItem.name}</ThemedText>
-                    <ThemedText style={styles.classCardSubject}>{classItem.subject}</ThemedText>
-                    <ThemedText style={styles.classCardStudents}>{classItem.students} Students</ThemedText>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {isLoadingClasses ? (
+              <ActivityIndicator size="large" color="#8E54E9" style={{ marginTop: 20 }} />
+            ) : (
+              <>
+                <View style={styles.classCountContainer}>
+                  <ThemedText style={styles.sectionTitle}>Select Class</ThemedText>
+                  {loggedInUserClassCount !== null && (
+                    <ThemedText style={styles.classCountText}>
+                      You have {loggedInUserClassCount} class{loggedInUserClassCount !== 1 ? "es" : ""} assigned.
+                    </ThemedText>
+                  )}
+                </View>
+                {fetchedClasses.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classCardsContainer}>
+                    {fetchedClasses.map((classItem) => (
+                      <TouchableOpacity
+                        key={classItem.id}
+                        style={styles.classCard}
+                        onPress={() => setSelectedClass(classItem)}
+                        activeOpacity={0.8}
+                      >
+                        <LinearGradient
+                          colors={classItem.color}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.classCardGradient}
+                        >
+                          <View style={styles.classCardIcon}>
+                            <Ionicons name="people" size={24} color="#FFFFFF" />
+                          </View>
+                          <ThemedText style={styles.classCardName} numberOfLines={2}>
+                            {classItem.name}
+                          </ThemedText>
+                          <ThemedText style={styles.classCardSubject}>{classItem.subject}</ThemedText>
+                          <ThemedText style={styles.classCardStudents}>{classItem.students} Students</ThemedText>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <ThemedText style={styles.noClassesText}>
+                    {loggedInUserClassCount === 0
+                      ? "No classes assigned to you."
+                      : "No classes found or error loading classes."}
+                  </ThemedText>
+                )}
+              </>
+            )}
           </View>
         ) : (
           <>
@@ -193,70 +408,83 @@ export default function AttendanceScreen() {
 
             <View style={styles.sectionContainer}>
               <View style={styles.sectionHeader}>
-                <ThemedText style={styles.sectionTitle}>Student Attendance</ThemedText>
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.actionButton} onPress={markAllPresent}>
-                    <LinearGradient
-                      colors={["#4CAF50", "#81C784"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.actionButtonGradient}
-                    >
-                      <ThemedText style={styles.actionButtonText}>All Present</ThemedText>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButton} onPress={markAllAbsent}>
-                    <LinearGradient
-                      colors={["#F44336", "#E57373"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.actionButtonGradient}
-                    >
-                      <ThemedText style={styles.actionButtonText}>All Absent</ThemedText>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
+                <ThemedText style={styles.sectionTitle}>
+                  Students for {selectedClass.name} - {selectedClass.subject}
+                </ThemedText>
+                <TouchableOpacity onPress={() => setSelectedClass(null)} style={styles.changeClassButton}>
+                  <ThemedText style={styles.changeClassButtonText}>Change Class</ThemedText>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.actionButtons}>
+                <TouchableOpacity style={styles.actionButton} onPress={markAllPresent}>
+                  <LinearGradient
+                    colors={["#4CAF50", "#81C784"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.actionButtonGradient}
+                  >
+                    <ThemedText style={styles.actionButtonText}>All Present</ThemedText>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionButton} onPress={markAllAbsent}>
+                  <LinearGradient
+                    colors={["#F44336", "#E57373"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.actionButtonGradient}
+                  >
+                    <ThemedText style={styles.actionButtonText}>All Absent</ThemedText>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
 
-              <View style={styles.studentList}>
-                {studentList.map((student) => (
-                  <View key={student.id} style={styles.studentCard}>
-                    <View style={styles.studentAvatarContainer}>
-                      <View
-                        style={[styles.studentAvatar, { backgroundColor: student.present ? "#8E54E9" : "#F44336" }]}
-                      >
-                        <ThemedText style={styles.studentAvatarText}>{student.avatar}</ThemedText>
+              {isLoadingStudents ? (
+                <ActivityIndicator size="large" color="#8E54E9" style={{ marginTop: 20 }} />
+              ) : studentList.length > 0 ? (
+                <View style={styles.studentList}>
+                  {studentList.map((student) => (
+                    <View key={student.id} style={styles.studentCard}>
+                      <View style={styles.studentAvatarContainer}>
+                        <View
+                          style={[styles.studentAvatar, { backgroundColor: student.present ? "#8E54E9" : "#F44336" }]}
+                        >
+                          <ThemedText style={styles.studentAvatarText}>{student.avatar}</ThemedText>
+                        </View>
                       </View>
+                      <View style={styles.studentInfo}>
+                        <ThemedText style={styles.studentName}>{student.name}</ThemedText>
+                        <ThemedText style={styles.studentRoll}>Roll No: {student.rollNo}</ThemedText>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.attendanceToggle, student.present ? styles.presentToggle : styles.absentToggle]}
+                        onPress={() => toggleAttendance(student.id)}
+                      >
+                        {student.present ? (
+                          <FontAwesome5 name="check" size={16} color="#4CAF50" />
+                        ) : (
+                          <FontAwesome5 name="times" size={16} color="#F44336" />
+                        )}
+                      </TouchableOpacity>
                     </View>
-                    <View style={styles.studentInfo}>
-                      <ThemedText style={styles.studentName}>{student.name}</ThemedText>
-                      <ThemedText style={styles.studentRoll}>Roll No: {student.rollNo}</ThemedText>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.attendanceToggle, student.present ? styles.presentToggle : styles.absentToggle]}
-                      onPress={() => toggleAttendance(student.id)}
-                    >
-                      {student.present ? (
-                        <FontAwesome5 name="check" size={16} color="#4CAF50" />
-                      ) : (
-                        <FontAwesome5 name="times" size={16} color="#F44336" />
-                      )}
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
+                  ))}
+                </View>
+              ) : (
+                <ThemedText style={styles.noStudentsText}>No students found for this class.</ThemedText>
+              )}
 
-              <TouchableOpacity style={styles.submitButton}>
-                <LinearGradient
-                  colors={["#4776E6", "#8E54E9"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.submitGradient}
-                >
-                  <ThemedText style={styles.submitButtonText}>Submit Attendance</ThemedText>
-                  <MaterialIcons name="check-circle" size={20} color="#FFFFFF" style={styles.submitIcon} />
-                </LinearGradient>
-              </TouchableOpacity>
+              {studentList.length > 0 && (
+                <TouchableOpacity style={styles.submitButton} onPress={handleSubmitAttendance}>
+                  <LinearGradient
+                    colors={["#4776E6", "#8E54E9"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.submitGradient}
+                  >
+                    <ThemedText style={styles.submitButtonText}>Submit Attendance</ThemedText>
+                    <MaterialIcons name="check-circle" size={20} color="#FFFFFF" style={styles.submitIcon} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
             </View>
           </>
         )}
@@ -344,13 +572,46 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#333",
+    // marginBottom: 15, // Adjusted for classCountContainer
+  },
+  classCountContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
+  },
+  classCountText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  noClassesText: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#777",
+  },
+  noStudentsText: {
+    textAlign: "center",
+    marginTop: 30,
+    fontSize: 16,
+    color: "#777",
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 15,
+  },
+  changeClassButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(142, 84, 233, 0.1)",
+    borderRadius: 8,
+  },
+  changeClassButtonText: {
+    color: "#8E54E9",
+    fontWeight: "600",
+    fontSize: 13,
   },
   classCardsContainer: {
     flexDirection: "row",
@@ -371,6 +632,7 @@ const styles = StyleSheet.create({
     padding: 15,
     height: 180,
     alignItems: "center",
+    justifyContent: "center",
   },
   classCardIcon: {
     width: 50,
@@ -382,13 +644,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   classCardName: {
-    fontSize: 16,
+    fontSize: 15, // Adjusted for potentially longer names
     fontWeight: "bold",
     color: "#FFFFFF",
+    minHeight: 36, // Ensure space for two lines
     textAlign: "center",
   },
   classCardSubject: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#FFFFFF",
     marginTop: 5,
     textAlign: "center",
@@ -422,6 +685,7 @@ const styles = StyleSheet.create({
   },
   attendanceStatItem: {
     alignItems: "center",
+    flex: 1, // Distribute space evenly
   },
   attendanceStatLabel: {
     fontSize: 12,
@@ -446,6 +710,8 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: "row",
+    justifyContent: "flex-end", // Align to the right
+    marginBottom: 15, // Added margin
   },
   actionButton: {
     marginLeft: 10,
