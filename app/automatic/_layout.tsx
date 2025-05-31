@@ -6,10 +6,7 @@ export default function AutomaticLayout() {
       <Stack.Screen
         name="automatic"
         options={{
-          title: "Automatic Attendance",
-          headerShown: true, // You can control this per screen
-          headerStyle: { backgroundColor: "#8E54E9" },
-          headerTintColor: "#fff",
+          headerShown: false, // Remove this header to avoid duplication
         }}
       />
     </Stack>

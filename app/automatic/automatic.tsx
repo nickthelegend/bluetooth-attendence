@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context"
 import { LinearGradient } from "expo-linear-gradient"
 import { ArrowLeft, Users, CheckCircle, Wifi } from "lucide-react-native"
-import { router, useLocalSearchParams, Stack } from "expo-router"
+import { router, useLocalSearchParams } from "expo-router"
 import * as NearbyConnections from "expo-nearby-connections"
 import { PERMISSIONS, RESULTS, checkMultiple, requestMultiple } from "react-native-permissions"
 import { supabase } from "@/lib/supabase" // Assuming you have a central supabase client
@@ -273,7 +273,6 @@ export default function AutomaticAttendanceScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: `Auto Attendance: ${className || "Class"}` }} />
       <LinearGradient colors={["#8E54E9", "#4776E6"]} style={styles.headerBar}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color="#FFFFFF" />
