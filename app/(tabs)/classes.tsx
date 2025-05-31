@@ -1,94 +1,223 @@
 "use client"
 
-import { useState } from "react"
-import { StyleSheet, ScrollView, TouchableOpacity, TextInput, View, Dimensions, StatusBar } from "react-native"
+import { useState, useEffect } from "react"
+import {
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  View,
+  Dimensions,
+  StatusBar,
+  ActivityIndicator,
+} from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { ThemedText } from "@/components/ThemedText"
 import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons"
+import { useRouter } from "expo-router"
+import { createClient, type User } from "@supabase/supabase-js"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const { width } = Dimensions.get("window")
 
-export default function ClassesScreen() {
-  const [searchQuery, setSearchQuery] = useState("")
+// Supabase client
+const supabaseUrl = "https://oquvqaiisiilhbvoopoi.supabase.co"
+const supabaseKey =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xdXZxYWlpc2lpbGhidm9vcG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ1NjcwNDksImV4cCI6MjA2MDE0MzA0OX0.XZT2SaLizGo8LWuFv3zRjHwuF-dzsSzCrKFNKuYe8Xs"
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+})
 
-  // Mock data for classes
-  const classes = [
-    {
-      id: 1,
-      name: "Class 10-A",
-      teacher: "Mr. Johnson",
-      students: 30,
-      lastAttendance: "2023-04-14",
-      attendanceRate: 92,
-      subject: "Mathematics",
-    },
-    {
-      id: 2,
-      name: "Class 9-B",
-      teacher: "Mrs. Smith",
-      students: 28,
-      lastAttendance: "2023-04-14",
-      attendanceRate: 89,
-      subject: "Science",
-    },
-    {
-      id: 3,
-      name: "Class 11-C",
-      teacher: "Mr. Davis",
-      students: 35,
-      lastAttendance: "2023-04-13",
-      attendanceRate: 94,
-      subject: "English",
-    },
-    {
-      id: 4,
-      name: "Class 12-D",
-      teacher: "Ms. Wilson",
-      students: 25,
-      lastAttendance: "2023-04-13",
-      attendanceRate: 88,
-      subject: "History",
-    },
-    {
-      id: 5,
-      name: "Class 8-A",
-      teacher: "Mr. Thompson",
-      students: 32,
-      lastAttendance: "2023-04-12",
-      attendanceRate: 91,
-      subject: "Geography",
-    },
-    {
-      id: 6,
-      name: "Class 7-B",
-      teacher: "Mrs. Anderson",
-      students: 30,
-      lastAttendance: "2023-04-12",
-      attendanceRate: 87,
-      subject: "Physics",
-    },
-  ]
+interface ClassListData {
+  id: string
+  name: string // e.g., "Computer Science 1-A"
+  teacher: string
+  students: number
+  subject: string // Subject taught by this staff member
+  programName: string
+  year: number
+  section: string
+  room_number?: string
+  // attendanceRate and lastAttendance are complex, omitting for now
+}
+
+export default function ClassesScreen() {
+  const router = useRouter()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [fetchedClasses, setFetchedClasses] = useState<ClassListData[]>([])
+
+  // isLoading will be true during initial user/staff fetch and subsequent class fetch
+  const [isLoading, setIsLoading] = useState(true)
+
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [staffId, setStaffId] = useState<string | null>(null)
+
+  // Effect 1: Fetch current user and their staff_id
+  useEffect(() => {
+    const fetchUserAndStaffDetails = async () => {
+      setIsLoading(true) // Start loading
+      setFetchedClasses([]) // Clear previous classes during re-fetch or initial load
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        console.warn("User fetch error or no user:", userError?.message || "No user session")
+        setCurrentUser(null)
+        setStaffId(null)
+        setIsLoading(false) // Stop loading if no user
+        return
+      }
+      setCurrentUser(user) // Set current user
+
+      // User is available, now fetch their staff ID
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (staffError) {
+        console.error("Error fetching staff ID:", staffError.message)
+        setStaffId(null)
+        setIsLoading(false) // Stop loading if staff fetch fails
+      } else if (staffData) {
+        setStaffId(staffData.id)
+        // setIsLoading(false) will be handled by the class fetching effect
+      } else {
+        console.warn("No staff record for current user:", user.id)
+        setStaffId(null)
+        setIsLoading(false) // Stop loading if no staff record
+      }
+    }
+
+    fetchUserAndStaffDetails()
+  }, []) // Runs once on component mount
+
+  // Effect 2: Fetch classes when staffId is available and changes
+  useEffect(() => {
+    // If staffId is null, it means either user is not logged in,
+    // no staff record, or initial fetch is still in progress.
+    // The previous effect handles setting isLoading to false in those cases.
+    if (!staffId) {
+      // If staffId becomes null after being set (e.g. user changes, error), clear classes.
+      // The isLoading state should have been handled by the first effect if it's an initial load without staffId.
+      if (fetchedClasses.length > 0) setFetchedClasses([])
+      // If isLoading is true here, it means the first effect is still running or failed to set staffId.
+      // We let the first effect control isLoading until staffId is determined.
+      // If staffId is definitively null and first effect is done, isLoading should be false.
+      return
+    }
+
+    const fetchClassesForStaff = async () => {
+      setIsLoading(true) // Indicate that we are now fetching classes
+
+      const { data: classStaffEntries, error: classStaffError } = await supabase
+        .from("class_staff")
+        .select("class_id, subject, staff:staff_id (name)")
+        .eq("staff_id", staffId)
+
+      if (classStaffError) {
+        console.error("Error fetching class_staff entries:", classStaffError.message)
+        setFetchedClasses([])
+        setIsLoading(false)
+        return
+      }
+
+      if (!classStaffEntries || classStaffEntries.length === 0) {
+        setFetchedClasses([])
+        setIsLoading(false)
+        return
+      }
+
+      const classDetailsPromises = classStaffEntries.map(async (entry) => {
+        const { data: classData, error: classError } = await supabase
+          .from("classes")
+          .select(
+            `
+            id,
+            year,
+            section,
+            room_number,
+            program:programs (name)
+          `,
+          )
+          .eq("id", entry.class_id)
+          .single()
+
+        if (classError || !classData) {
+          console.error(`Error fetching details for class ${entry.class_id}:`, classError?.message)
+          return null
+        }
+
+        const { count: studentCount, error: studentCountError } = await supabase
+          .from("class_students")
+          .select("*", { count: "exact", head: true })
+          .eq("class_id", classData.id)
+
+        const programName = (classData.program as any)?.name || "N/A"
+        const teacherName = (entry.staff as any)?.name || "N/A"
+
+        return {
+          id: classData.id,
+          name: `${programName} ${classData.year}-${classData.section}`,
+          teacher: teacherName,
+          students: studentCountError ? 0 : studentCount || 0,
+          subject: entry.subject,
+          programName: programName,
+          year: classData.year,
+          section: classData.section,
+          room_number: classData.room_number,
+        }
+      })
+
+      const resolvedClassDetails = (await Promise.all(classDetailsPromises)).filter(
+        (c) => c !== null,
+      ) as ClassListData[]
+
+      setFetchedClasses(resolvedClassDetails)
+      setIsLoading(false) // Finished fetching classes
+    }
+
+    fetchClassesForStaff()
+  }, [staffId]) // Only re-run this effect if staffId changes
 
   const filteredClasses = searchQuery
-    ? classes.filter(
+    ? fetchedClasses.filter(
         (c) =>
           c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           c.teacher.toLowerCase().includes(searchQuery.toLowerCase()) ||
           c.subject.toLowerCase().includes(searchQuery.toLowerCase()),
       )
-    : classes
+    : fetchedClasses
 
   const getAttendanceColor = (rate) => {
+    // This is a placeholder as rate is not fetched
     if (rate >= 90) return ["#4CAF50", "#81C784"]
     if (rate >= 75) return ["#FFC107", "#FFD54F"]
     return ["#F44336", "#E57373"]
   }
 
-  // Function to toggle drawer from parent component
   const toggleDrawer = () => {
-    // This will be handled by the drawer context in _layout.tsx
     global.toggleDrawer && global.toggleDrawer()
   }
+
+  const handleAddClass = () => {
+    router.push("/class/new")
+  }
+
+  const handleEditClass = (classId: string) => {
+    router.push(`/class/${classId}`)
+  }
+
+  const totalStudents = fetchedClasses.reduce((sum, c) => sum + c.students, 0)
 
   return (
     <View style={styles.container}>
@@ -132,7 +261,7 @@ export default function ClassesScreen() {
             <View style={[styles.statIconContainer, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
               <Ionicons name="school" size={24} color="#8E54E9" />
             </View>
-            <ThemedText style={styles.statNumber}>{classes.length}</ThemedText>
+            <ThemedText style={styles.statNumber}>{isLoading ? "..." : fetchedClasses.length}</ThemedText>
             <ThemedText style={styles.statLabel}>Total Classes</ThemedText>
           </View>
 
@@ -140,7 +269,7 @@ export default function ClassesScreen() {
             <View style={[styles.statIconContainer, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
               <Ionicons name="people" size={24} color="#4CAF50" />
             </View>
-            <ThemedText style={styles.statNumber}>{classes.reduce((sum, c) => sum + c.students, 0)}</ThemedText>
+            <ThemedText style={styles.statNumber}>{isLoading ? "..." : totalStudents}</ThemedText>
             <ThemedText style={styles.statLabel}>Total Students</ThemedText>
           </View>
 
@@ -148,17 +277,16 @@ export default function ClassesScreen() {
             <View style={[styles.statIconContainer, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
               <MaterialIcons name="bar-chart" size={24} color="#FFC107" />
             </View>
-            <ThemedText style={styles.statNumber}>
-              {Math.round(classes.reduce((sum, c) => sum + c.attendanceRate, 0) / classes.length)}%
-            </ThemedText>
+            <ThemedText style={styles.statNumber}>N/A</ThemedText>
+            {/* Avg. Attendance - N/A for now */}
             <ThemedText style={styles.statLabel}>Avg. Attendance</ThemedText>
           </View>
         </View>
 
         <View style={styles.classesContainer}>
           <View style={styles.sectionHeader}>
-            <ThemedText style={styles.sectionTitle}>All Classes</ThemedText>
-            <TouchableOpacity style={styles.addButton}>
+            <ThemedText style={styles.sectionTitle}>My Classes</ThemedText>
+            <TouchableOpacity style={styles.addButton} onPress={handleAddClass}>
               <LinearGradient
                 colors={["#4776E6", "#8E54E9"]}
                 start={{ x: 0, y: 0 }}
@@ -171,68 +299,93 @@ export default function ClassesScreen() {
             </TouchableOpacity>
           </View>
 
-          {filteredClasses.map((classItem) => {
-            const attendanceColors = getAttendanceColor(classItem.attendanceRate)
+          {isLoading ? (
+            <ActivityIndicator size="large" color="#8E54E9" style={{ marginTop: 30 }} />
+          ) : filteredClasses.length > 0 ? (
+            filteredClasses.map((classItem) => {
+              // Attendance rate is not available, using a default color
+              const attendanceColors = getAttendanceColor(0)
 
-            return (
-              <View key={classItem.id} style={styles.classCard}>
-                <View style={styles.classHeader}>
-                  <View style={styles.classNameContainer}>
-                    <ThemedText style={styles.className}>{classItem.name}</ThemedText>
-                    <View style={styles.classSubjectContainer}>
-                      <Ionicons name="book" size={14} color="#8E54E9" style={styles.subjectIcon} />
-                      <ThemedText style={styles.classSubject}>{classItem.subject}</ThemedText>
+              return (
+                <View key={classItem.id} style={styles.classCard}>
+                  <View style={styles.classHeader}>
+                    <View style={styles.classNameContainer}>
+                      <ThemedText style={styles.className}>{classItem.name}</ThemedText>
+                      <View style={styles.classSubjectContainer}>
+                        <Ionicons name="book" size={14} color="#8E54E9" style={styles.subjectIcon} />
+                        <ThemedText style={styles.classSubject}>{classItem.subject}</ThemedText>
+                      </View>
                     </View>
+                    {/* Attendance Rate Badge - Hidden or shows N/A as data is not fetched */}
+                    {/* <LinearGradient
+                      colors={attendanceColors}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.attendanceRateBadge}
+                    >
+                      <ThemedText style={styles.attendanceRateText}>N/A</ThemedText>
+                    </LinearGradient> */}
                   </View>
-                  <LinearGradient
-                    colors={attendanceColors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.attendanceRateBadge}
-                  >
-                    <ThemedText style={styles.attendanceRateText}>{classItem.attendanceRate}%</ThemedText>
-                  </LinearGradient>
-                </View>
 
-                <View style={styles.classTeacherContainer}>
-                  <Ionicons name="person" size={16} color="#666" style={styles.teacherIcon} />
-                  <ThemedText style={styles.classTeacher}>{classItem.teacher}</ThemedText>
-                </View>
-
-                <View style={styles.classDetails}>
-                  <View style={styles.detailItem}>
-                    <Ionicons name="people" size={16} color="#666" />
-                    <ThemedText style={styles.detailText}>{classItem.students} Students</ThemedText>
+                  <View style={styles.classTeacherContainer}>
+                    <Ionicons name="person" size={16} color="#666" style={styles.teacherIcon} />
+                    <ThemedText style={styles.classTeacher}>{classItem.teacher}</ThemedText>
                   </View>
-                  <View style={styles.detailItem}>
-                    <MaterialIcons name="calendar-today" size={16} color="#666" />
-                    <ThemedText style={styles.detailText}>Last: {classItem.lastAttendance}</ThemedText>
+
+                  <View style={styles.classDetails}>
+                    <View style={styles.detailItem}>
+                      <Ionicons name="people" size={16} color="#666" />
+                      <ThemedText style={styles.detailText}>{classItem.students} Students</ThemedText>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Ionicons name="business" size={16} color="#666" />
+                      <ThemedText style={styles.detailText}>Room: {classItem.room_number || "N/A"}</ThemedText>
+                    </View>
+                    {/* Last Attendance - N/A for now */}
+                    {/* <View style={styles.detailItem}>
+                      <MaterialIcons name="calendar-today" size={16} color="#666" />
+                      <ThemedText style={styles.detailText}>Last: N/A</ThemedText>
+                    </View> */}
+                  </View>
+
+                  <View style={styles.classActions}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={() => router.push(`/attendance?classId=${classItem.id}&subject=${classItem.subject}`)}
+                    >
+                      <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
+                        <FontAwesome5 name="user-check" size={16} color="#8E54E9" />
+                      </View>
+                      <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
+                    </TouchableOpacity>
+                    {/* View Report - Placeholder */}
+                    {/* <TouchableOpacity style={styles.actionButton}>
+                      <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
+                        <MaterialIcons name="description" size={16} color="#4CAF50" />
+                      </View>
+                      <ThemedText style={styles.actionButtonText}>View Report</ThemedText>
+                    </TouchableOpacity> */}
+                    <TouchableOpacity style={styles.actionButton} onPress={() => handleEditClass(classItem.id)}>
+                      <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
+                        <MaterialIcons name="edit" size={16} color="#FFC107" />
+                      </View>
+                      <ThemedText style={styles.actionButtonText}>Manage</ThemedText>
+                    </TouchableOpacity>
                   </View>
                 </View>
-
-                <View style={styles.classActions}>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(142, 84, 233, 0.1)" }]}>
-                      <FontAwesome5 name="user-check" size={16} color="#8E54E9" />
-                    </View>
-                    <ThemedText style={styles.actionButtonText}>Take Attendance</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(76, 175, 80, 0.1)" }]}>
-                      <MaterialIcons name="description" size={16} color="#4CAF50" />
-                    </View>
-                    <ThemedText style={styles.actionButtonText}>View Report</ThemedText>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButton}>
-                    <View style={[styles.actionButtonIcon, { backgroundColor: "rgba(255, 193, 7, 0.1)" }]}>
-                      <MaterialIcons name="edit" size={16} color="#FFC107" />
-                    </View>
-                    <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )
-          })}
+              )
+            })
+          ) : (
+            <ThemedText style={styles.noClassesText}>
+              {!currentUser && !isLoading
+                ? "Please log in to see your classes."
+                : currentUser && !staffId && !isLoading
+                  ? "No staff profile found for your account. Please contact admin if this is an error."
+                  : isLoading
+                    ? "" // Handled by the global ActivityIndicator
+                    : "You are not assigned to any classes or no classes found."}
+            </ThemedText>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -321,13 +474,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     width: width * 0.28,
     borderRadius: 15,
-    padding: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 10,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+    minHeight: 130, // Ensure consistent height
   },
   statIconContainer: {
     width: 50,
@@ -398,9 +553,10 @@ const styles = StyleSheet.create({
   },
   classNameContainer: {
     flex: 1,
+    marginRight: 10, // Add some space if attendance badge is shown
   },
   className: {
-    fontSize: 18,
+    fontSize: 17, // Slightly smaller
     fontWeight: "bold",
     color: "#333",
   },
@@ -430,6 +586,7 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   attendanceRateBadge: {
+    // Kept for potential future use
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 10,
@@ -444,11 +601,13 @@ const styles = StyleSheet.create({
   classDetails: {
     flexDirection: "row",
     marginBottom: 15,
+    flexWrap: "wrap", // Allow details to wrap
   },
   detailItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginRight: 20,
+    marginRight: 15,
+    marginBottom: 5, // For wrapping
   },
   detailText: {
     fontSize: 14,
@@ -457,27 +616,34 @@ const styles = StyleSheet.create({
   },
   classActions: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-around", // Changed for better spacing
     borderTopWidth: 1,
     borderTopColor: "#F0F0F0",
     paddingTop: 15,
   },
   actionButton: {
-    flexDirection: "row",
+    flexDirection: "column", // Icon on top, text below
     alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
+    // flex: 1, // Removed to allow natural width based on content
+    paddingHorizontal: 5, // Add some horizontal padding
   },
   actionButtonIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
+    width: 36, // Slightly larger icon background
+    height: 36,
+    borderRadius: 10, // Rounded square
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 5,
+    marginBottom: 5, // Space between icon and text
   },
   actionButtonText: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 11, // Slightly smaller text
+    color: "#555", // Darker text for better readability
+    textAlign: "center",
+  },
+  noClassesText: {
+    textAlign: "center",
+    marginTop: 30,
+    fontSize: 16,
+    color: "#777",
   },
 })
