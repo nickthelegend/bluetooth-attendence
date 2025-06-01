@@ -25,7 +25,8 @@
         "android.permission.CHANGE_WIFI_STATE",
         "android.permission.BLUETOOTH_ADVERTISE",
         "android.permission.NEARBY_WIFI_DEVICES"
-      ]
+      ],
+      "package": "com.nickthelegend.staffapp"
     },
     "web": {
       "bundler": "metro",
